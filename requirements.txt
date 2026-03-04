@@ -1,4 +1,5 @@
-streamlit==1.32.0
+flask==3.0.3
+flask-cors==4.0.1
 sqlalchemy[asyncio]==2.0.29
 pyodbc==5.1.0
 azure-ai-documentintelligence==1.0.0b1
@@ -7,3 +8,5 @@ scikit-learn==1.4.1.post1
 pandas==2.2.1
 numpy==1.26.4
 python-dotenv==1.0.1
+werkzeug==3.0.3
+python-jose[cryptography]==3.3.0
