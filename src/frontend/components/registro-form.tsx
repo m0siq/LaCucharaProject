@@ -34,34 +34,35 @@ export function RegistroForm() {
   const [direccion, setDireccion] = useState("")
   const [descripcion, setDescripcion] = useState("")
 
-  async function handleSubmit(e: React.FormEvent) {
+async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
 
     try {
-      const res = await fetch("/api/auth/registro", {
+      // ── Elige el endpoint según el rol ──────────────────────
+      const endpoint = rol === "hostelero" ? "/hosteleros/" : "/clientes/"
+
+      const body =
+        rol === "hostelero"
+          ? { NombreUsuario: username, Contrasena: password, NombreRestaurante: nombreRestaurante }
+          : { NombreUsuario: username, Contrasena: password }
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username,
-          password,
-          rol,
-          nombreRestaurante,
-          direccion,
-          descripcion,
-        }),
+        body: JSON.stringify(body),
       })
 
       const data = await res.json()
 
       if (!res.ok) {
-        toast.error(data.error || "Error al registrar")
+        toast.error(data.detail || "Error al registrar")
         return
       }
 
       toast.success("Cuenta creada con exito")
 
-      if (data.user.Rol === "hostelero") {
+      if (rol === "hostelero") {
         router.push("/hostelero")
       } else {
         router.push("/cliente")
@@ -136,26 +137,6 @@ export function RegistroForm() {
                   value={nombreRestaurante}
                   onChange={(e) => setNombreRestaurante(e.target.value)}
                   required
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="reg-direccion">Direccion</Label>
-                <Input
-                  id="reg-direccion"
-                  placeholder="Ej: Calle Orense 12, Azca"
-                  value={direccion}
-                  onChange={(e) => setDireccion(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="reg-descripcion">Descripcion</Label>
-                <Textarea
-                  id="reg-descripcion"
-                  placeholder="Describe tu restaurante brevemente..."
-                  value={descripcion}
-                  onChange={(e) => setDescripcion(e.target.value)}
-                  maxLength={500}
-                  rows={3}
                 />
               </div>
             </>
