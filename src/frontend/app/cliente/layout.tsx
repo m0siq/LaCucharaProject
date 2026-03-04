@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import type { SessionUser } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { UtensilsCrossed, LogOut, User } from "lucide-react"
+import { UtensilsCrossed, LogOut, User, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 
 export default function ClienteLayout({
@@ -59,6 +59,13 @@ export default function ClienteLayout({
             <span className="font-serif text-xl text-foreground">
               La Cuchara
             </span>
+          </Link>
+          <Link
+            href="/cliente/recomendaciones"
+            className="hidden items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary sm:flex"
+          >
+            <Sparkles className="h-4 w-4" />
+            Recomendaciones
           </Link>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
