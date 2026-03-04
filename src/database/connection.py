@@ -4,14 +4,19 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import text
 
-load_dotenv()
+import os
+from dotenv import load_dotenv
 
 # ── Parámetros de conexión ────────────────────────────────────────────────────
-DB_SERVER   = os.getenv("DB_SERVER", "cuchara.database.windows.net")
+
+
+load_dotenv()  # lee el archivo .env automáticamente
+
+DB_SERVER   = os.getenv("DB_SERVER")
 DB_PORT     = os.getenv("DB_PORT", "1433")
-DB_NAME     = os.getenv("DB_NAME", "CucharaSQL")
-DB_USER     = os.getenv("DB_USER", "")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_NAME     = os.getenv("DB_NAME")
+DB_USER     = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_DRIVER   = os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server")
 
 # ── Cadena de conexión ────────────────────────────────────────────────────────

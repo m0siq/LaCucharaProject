@@ -18,6 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database.connection import Base
+from sqlalchemy.dialects.mssql import VARBINARY
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -26,18 +27,24 @@ from src.database.connection import Base
 class Usuario(Base):
     __tablename__ = "Usuario"
 
-    IDUsuario:    Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    IDUsuario:     Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     NombreUsuario: Mapped[str] = mapped_column(String(100), nullable=False)
-    Contrasena:   Mapped[str] = mapped_column(String(255), nullable=False)
+    Contrasena:    Mapped[str] = mapped_column(String(255), nullable=False)
 
-    # Relaciones
-    hostelero:   Mapped["Hostelero"]         = relationship(back_populates="usuario", uselist=False)
-    cliente:     Mapped["Cliente"]           = relationship(back_populates="usuario", uselist=False)
-    menus:       Mapped[list["Menu"]]        = relationship(back_populates="usuario")
+    hostelero: Mapped["Hostelero"] = relationship(
+        back_populates="usuario",
+        uselist=False,
+        cascade="all, delete-orphan",  # ← añadir
+        passive_deletes=True,           # ← añadir
+    )
+    cliente: Mapped["Cliente"] = relationship(
+        back_populates="usuario",
+        uselist=False,
+        cascade="all, delete-orphan",  # ← añadir
+        passive_deletes=True,           # ← añadir
+    )
+    menus:        Mapped[list["Menu"]]       = relationship(back_populates="usuario")
     valoraciones: Mapped[list["Valoracion"]] = relationship(back_populates="usuario")
-
-    def __repr__(self) -> str:
-        return f"<Usuario id={self.IDUsuario} nombre={self.NombreUsuario!r}>"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -51,9 +58,11 @@ class Hostelero(Base):
         primary_key=True,
     )
     NombreRestaurante: Mapped[str] = mapped_column(String(200), nullable=False)
+    Logo:              Mapped[bytes|None] = mapped_column(VARBINARY("max"))  # ← nuevo
 
     # Relaciones
-    usuario: Mapped["Usuario"] = relationship(back_populates="hostelero")
+    usuario: Mapped["Usuario"] = relationship(back_populates="hostelero",
+        passive_deletes=True)
 
     def __repr__(self) -> str:
         return f"<Hostelero id={self.IDUsuario} restaurante={self.NombreRestaurante!r}>"
@@ -71,7 +80,8 @@ class Cliente(Base):
     )
 
     # Relaciones
-    usuario: Mapped["Usuario"] = relationship(back_populates="cliente")
+    usuario: Mapped["Usuario"] = relationship(back_populates="cliente",
+        passive_deletes=True)
 
     def __repr__(self) -> str:
         return f"<Cliente id={self.IDUsuario}>"
@@ -104,7 +114,7 @@ class Menu(Base):
 
     IDMenu:      Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     IDUsuario:   Mapped[int] = mapped_column(Integer, ForeignKey("Usuario.IDUsuario"), nullable=False)
-    Imagen_menu: Mapped[str | None] = mapped_column(String(500))  # ruta o URL de la imagen
+    Imagen_menu: Mapped[bytes | None] = mapped_column(VARBINARY("max"))
     Fecha:       Mapped[date | None] = mapped_column(Date)
 
     # Relaciones
