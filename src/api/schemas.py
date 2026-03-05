@@ -5,7 +5,8 @@ Esquemas Pydantic para validación de entrada y salida.
 """
 
 from datetime import date, datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+from typing import Any
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -100,9 +101,23 @@ class MenuUpdate(BaseModel):
 
 
 class MenuOut(BaseModel):
-    IDMenu:    int
-    IDUsuario: int
-    Fecha:     date | None
+    IDMenu:     int
+    IDUsuario:  int
+    Fecha:      date | None
+    has_imagen: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _compute_has_imagen(cls, data: Any) -> Any:
+        # Si viene un objeto ORM (SQLAlchemy), lo convertimos a dict
+        if hasattr(data, "Imagen_menu"):
+            return {
+                "IDMenu":     data.IDMenu,
+                "IDUsuario":  data.IDUsuario,
+                "Fecha":      data.Fecha,
+                "has_imagen": bool(data.Imagen_menu),
+            }
+        return data
 
     model_config = {"from_attributes": True}
 
