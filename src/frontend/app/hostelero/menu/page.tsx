@@ -8,81 +8,67 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
-import {
-  Loader2,
-  Upload,
-  Trash2,
-  ImageIcon,
-  CalendarDays,
-} from "lucide-react"
+import { Loader2, Upload, Trash2, ImageIcon, CalendarDays } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export default function MenuPage() {
-  const { data: restData, isLoading: restLoading } = useSWR(
-    "/api/hostelero/restaurante",
-    fetcher
-  )
-  const { data: menusData, isLoading: menusLoading } = useSWR(
-    restData?.restaurante
-      ? `/api/menus?restauranteId=${restData.restaurante.IDRestaurante}`
-      : null,
-    fetcher
-  )
+  const { data: menusData, isLoading: menusLoading } = useSWR("/api/menus", fetcher)
 
-  const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0])
-  const [precio, setPrecio] = useState("")
+  const [fecha, setFecha]               = useState(new Date().toISOString().split("T")[0])
+  const [imageFile, setImageFile]       = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [imageBase64, setImageBase64] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
-  const [deleting, setDeleting] = useState<number | null>(null)
+  const [creating, setCreating]         = useState(false)
+  const [deleting, setDeleting]         = useState<number | null>(null)
 
-  const handleImageChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
-      if (!file) return
-
-      const reader = new FileReader()
-      reader.onload = () => {
-        const result = reader.result as string
-        setImagePreview(result)
-        setImageBase64(result)
-      }
-      reader.readAsDataURL(file)
-    },
-    []
-  )
+  const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+  }, [])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    if (!restData?.restaurante) return
     setCreating(true)
 
     try {
+      // 1. Crear el menú
       const res = await fetch("/api/menus", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          restauranteId: restData.restaurante.IDRestaurante,
-          fecha,
-          precio: parseFloat(precio),
-          imagenMenu: imageBase64,
-        }),
+        body: JSON.stringify({ fecha }),
       })
 
       const data = await res.json()
       if (!res.ok) {
-        toast.error(data.error)
+        toast.error(data.error || "Error al crear el menu")
         return
       }
 
+      const menuId = data.menuId
+
+      // 2. Subir imagen si se seleccionó una
+      if (imageFile) {
+        const fd = new FormData()
+        fd.append("menuId", String(menuId))
+        fd.append("imagen", imageFile)
+
+        const resImg = await fetch("/api/menus", {
+          method: "PUT",
+          body: fd,
+        })
+
+        if (!resImg.ok) {
+          toast.warning("Menu creado pero no se pudo subir la imagen")
+        }
+      }
+
       toast.success("Menu creado correctamente")
-      setPrecio("")
+      setImageFile(null)
       setImagePreview(null)
-      setImageBase64(null)
-      mutate(
-        `/api/menus?restauranteId=${restData.restaurante.IDRestaurante}`
-      )
+      mutate("/api/menus")
+
     } catch {
       toast.error("Error al crear el menu")
     } finally {
@@ -93,13 +79,13 @@ export default function MenuPage() {
   async function handleDelete(menuId: number) {
     setDeleting(menuId)
     try {
-      await fetch(`/api/menus/${menuId}`, { method: "DELETE" })
-      toast.success("Menu eliminado")
-      if (restData?.restaurante) {
-        mutate(
-          `/api/menus?restauranteId=${restData.restaurante.IDRestaurante}`
-        )
+      const res = await fetch(`/api/menus/${menuId}`, { method: "DELETE" })
+      if (!res.ok) {
+        toast.error("Error al eliminar el menu")
+        return
       }
+      toast.success("Menu eliminado")
+      mutate("/api/menus")
     } catch {
       toast.error("Error al eliminar el menu")
     } finally {
@@ -107,20 +93,11 @@ export default function MenuPage() {
     }
   }
 
-  if (restLoading) {
-    return (
-      <div className="flex flex-col gap-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64" />
-      </div>
-    )
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-serif text-3xl text-foreground">Menu del Dia</h1>
 
-      {/* Create Menu Form */}
+      {/* Crear menu */}
       <Card className="border-border/50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 font-serif text-xl">
@@ -130,36 +107,19 @@ export default function MenuPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreate} className="flex flex-col gap-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="menu-fecha">Fecha</Label>
-                <Input
-                  id="menu-fecha"
-                  type="date"
-                  value={fecha}
-                  onChange={(e) => setFecha(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="menu-precio">{"Precio (EUR)"}</Label>
-                <Input
-                  id="menu-precio"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="12.50"
-                  value={precio}
-                  onChange={(e) => setPrecio(e.target.value)}
-                  required
-                />
-              </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="menu-fecha">Fecha</Label>
+              <Input
+                id="menu-fecha"
+                type="date"
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+                required
+              />
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="menu-imagen">
-                Imagen del menu (opcional)
-              </Label>
+              <Label htmlFor="menu-imagen">Imagen del menu (opcional)</Label>
               <div className="flex items-center gap-4">
                 <label
                   htmlFor="menu-imagen"
@@ -177,11 +137,7 @@ export default function MenuPage() {
                 />
                 {imagePreview && (
                   <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-border">
-                    <img
-                      src={imagePreview}
-                      alt="Vista previa"
-                      className="h-full w-full object-cover"
-                    />
+                    <img src={imagePreview} alt="Vista previa" className="h-full w-full object-cover" />
                   </div>
                 )}
               </div>
@@ -201,12 +157,10 @@ export default function MenuPage() {
         </CardContent>
       </Card>
 
-      {/* Existing Menus */}
+      {/* Lista de menus */}
       <Card className="border-border/50">
         <CardHeader>
-          <CardTitle className="font-serif text-xl">
-            Menus publicados
-          </CardTitle>
+          <CardTitle className="font-serif text-xl">Menus publicados</CardTitle>
         </CardHeader>
         <CardContent>
           {menusLoading ? (
@@ -224,61 +178,53 @@ export default function MenuPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {menusData.menus.map(
-                (menu: {
-                  IDMenu: number
-                  Fecha: string
-                  Precio: number
-                  ImagenMenu: string | null
-                }) => (
-                  <div
-                    key={menu.IDMenu}
-                    className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/30 px-4 py-3"
-                  >
-                    <div className="flex items-center gap-4">
-                      {menu.ImagenMenu ? (
-                        <div className="h-10 w-10 overflow-hidden rounded border border-border">
-                          <img
-                            src={menu.ImagenMenu}
-                            alt="Menu"
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded border border-border bg-muted">
-                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-sm font-medium text-foreground">
-                          {new Date(menu.Fecha).toLocaleDateString("es-ES", {
-                            weekday: "long",
-                            day: "numeric",
-                            month: "long",
-                          })}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {Number(menu.Precio).toFixed(2)} EUR
-                        </p>
+              {menusData.menus.map((menu: {
+                IDMenu: number
+                Fecha: string
+                Imagen_menu: string | null
+              }) => (
+                <div
+                  key={menu.IDMenu}
+                  className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/30 px-4 py-3"
+                >
+                  <div className="flex items-center gap-4">
+                    {menu.Imagen_menu ? (
+                      <div className="h-10 w-10 overflow-hidden rounded border border-border">
+                        <img
+                          src={`/api/menus/${menu.IDMenu}/imagen`}
+                          alt="Menu"
+                          className="h-full w-full object-cover"
+                        />
                       </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(menu.IDMenu)}
-                      disabled={deleting === menu.IDMenu}
-                      className="text-destructive hover:bg-destructive/10"
-                    >
-                      {deleting === menu.IDMenu ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                      <span className="sr-only">Eliminar menu</span>
-                    </Button>
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded border border-border bg-muted">
+                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                    <p className="text-sm font-medium text-foreground">
+                      {new Date(menu.Fecha).toLocaleDateString("es-ES", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                      })}
+                    </p>
                   </div>
-                )
-              )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(menu.IDMenu)}
+                    disabled={deleting === menu.IDMenu}
+                    className="text-destructive hover:bg-destructive/10"
+                  >
+                    {deleting === menu.IDMenu ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                    <span className="sr-only">Eliminar menu</span>
+                  </Button>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>

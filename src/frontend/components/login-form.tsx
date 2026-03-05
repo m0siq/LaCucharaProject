@@ -30,7 +30,15 @@ export function LoginForm() {
       const data = await res.json()
 
       if (!res.ok) {
-        toast.error(data.error || "Error al iniciar sesion")
+        const mensaje = typeof data.error === "string"
+          ? data.error
+          : Array.isArray(data.detail)
+          ? data.detail[0]?.msg || "Error al iniciar sesion"
+          : typeof data.detail === "string"
+          ? data.detail
+          : "Credenciales incorrectas"
+
+        toast.error(mensaje)
         return
       }
 

@@ -1,34 +1,71 @@
 import { NextResponse } from "next/server"
-import { query, sql } from "@/lib/db"
 import { requireRole } from "@/lib/auth"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export async function GET() {
   try {
     const user = await requireRole("hostelero")
 
-    const restaurantes = await query(
-      `SELECT r.*, 
-        (SELECT COUNT(*) FROM Menus m WHERE m.IDRestaurante = r.IDRestaurante) AS TotalMenus,
-        (SELECT AVG(CAST(v.Puntuacion AS FLOAT)) 
-         FROM Valoraciones v 
-         JOIN Platos p ON v.IDPlato = p.IDPlato 
-         JOIN Menus m ON p.IDMenu = m.IDMenu 
-         WHERE m.IDRestaurante = r.IDRestaurante) AS PromedioValoracion,
-        (SELECT COUNT(*) 
-         FROM Valoraciones v 
-         JOIN Platos p ON v.IDPlato = p.IDPlato 
-         JOIN Menus m ON p.IDMenu = m.IDMenu 
-         WHERE m.IDRestaurante = r.IDRestaurante) AS TotalValoraciones
-       FROM Restaurantes r
-       WHERE r.IDHostelero = @userId`,
-      [{ name: "userId", type: sql.Int, value: user.IDUsuario }]
-    )
+    // Datos del hostelero/restaurante
+    const resHostelero = await fetch(`${API_URL}/hosteleros/${user.IDUsuario}`)
+    if (!resHostelero.ok) {
+      return NextResponse.json({ error: "Restaurante no encontrado" }, { status: 404 })
+    }
+    const hostelero = await resHostelero.json()
 
-    return NextResponse.json({ restaurante: restaurantes[0] || null })
+    // Menus del hostelero
+    const resMenus = await fetch(`${API_URL}/menus?id_usuario=${user.IDUsuario}`)
+    const menus = resMenus.ok ? await resMenus.json() : []
+
+    // Valoraciones medias de cada plato del hostelero
+    const resPlatos = await fetch(`${API_URL}/platos/`)
+    const platos = resPlatos.ok ? await resPlatos.json() : []
+
+    return NextResponse.json({
+      restaurante: {
+        IDUsuario:         hostelero.IDUsuario,
+        NombreRestaurante: hostelero.NombreRestaurante,
+        TotalMenus:        menus.length,
+        TotalPlatos:       platos.length,
+      }
+    })
+
   } catch (error: unknown) {
     console.error("Error fetching hostelero data:", error)
     return NextResponse.json(
       { error: "Error al obtener datos del restaurante" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const user = await requireRole("hostelero")
+    const body = await request.json()
+
+    const res = await fetch(`${API_URL}/hosteleros/${user.IDUsuario}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        NombreRestaurante: body.NombreRestaurante,
+        NombreUsuario:     body.NombreUsuario,
+        Contrasena:        body.Contrasena,
+      }),
+    })
+
+    if (!res.ok) {
+      return NextResponse.json({ error: "Error al actualizar" }, { status: res.status })
+    }
+
+    const data = await res.json()
+    return NextResponse.json(data)
+
+  } catch (error: unknown) {
+    console.error("Error updating hostelero data:", error)
+    return NextResponse.json(
+      { error: "Error al actualizar datos del restaurante" },
       { status: 500 }
     )
   }

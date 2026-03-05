@@ -1,30 +1,20 @@
 import { NextResponse } from "next/server"
-import { query, sql } from "@/lib/db"
 import { requireRole } from "@/lib/auth"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params
-    const menus = await query(
-      "SELECT * FROM Menus WHERE IDMenu = @id",
-      [{ name: "id", type: sql.Int, value: parseInt(id) }]
-    )
+  const { id } = await params
+  const res = await fetch(`${API_URL}/menus/${id}/imagen`)
+  if (!res.ok) return NextResponse.json({ error: "Sin imagen" }, { status: 404 })
 
-    if (menus.length === 0) {
-      return NextResponse.json({ error: "Menu no encontrado" }, { status: 404 })
-    }
-
-    return NextResponse.json({ menu: menus[0] })
-  } catch (error: unknown) {
-    console.error("Error fetching menu:", error)
-    return NextResponse.json(
-      { error: "Error al obtener menu" },
-      { status: 500 }
-    )
-  }
+  const buffer = await res.arrayBuffer()
+  return new Response(buffer, {
+    headers: { "Content-Type": "image/jpeg" },
+  })
 }
 
 export async function DELETE(
@@ -34,28 +24,19 @@ export async function DELETE(
   try {
     await requireRole("hostelero")
     const { id } = await params
-    const menuId = parseInt(id)
 
-    // Delete related data first (valoraciones -> platos -> menu)
-    await query(
-      `DELETE v FROM Valoraciones v 
-       JOIN Platos p ON v.IDPlato = p.IDPlato 
-       WHERE p.IDMenu = @id`,
-      [{ name: "id", type: sql.Int, value: menuId }]
-    )
-    await query("DELETE FROM Platos WHERE IDMenu = @id", [
-      { name: "id", type: sql.Int, value: menuId },
-    ])
-    await query("DELETE FROM Menus WHERE IDMenu = @id", [
-      { name: "id", type: sql.Int, value: menuId },
-    ])
+    const res = await fetch(`${API_URL}/menus/${id}`, {
+      method: "DELETE",
+    })
+
+    if (!res.ok) {
+      return NextResponse.json({ error: "Error al eliminar menu" }, { status: res.status })
+    }
 
     return NextResponse.json({ ok: true })
+
   } catch (error: unknown) {
     console.error("Error deleting menu:", error)
-    return NextResponse.json(
-      { error: "Error al eliminar menu" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Error al eliminar menu" }, { status: 500 })
   }
 }

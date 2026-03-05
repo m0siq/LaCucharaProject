@@ -1,61 +1,32 @@
 import { NextResponse } from "next/server"
-import bcrypt from "bcryptjs"
-import { query, sql } from "@/lib/db"
 import { createSession } from "@/lib/auth"
-import type { SessionUser } from "@/lib/types"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export async function POST(request: Request) {
-  try {
-    const { username, password } = await request.json()
+    const body = await request.json()
+    console.log("Body recibido:", body)  // ← ve a la terminal de Next.js
 
-    if (!username || !password) {
-      return NextResponse.json(
-        { error: "Usuario y contraseña son obligatorios" },
-        { status: 400 }
-      )
+    const { username, password, rol } = body
+
+    const res = await fetch(`${API_URL}/usuarios/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            NombreUsuario: username,
+            Contrasena:    password,
+            Rol:           rol,
+        }),
+    })
+
+    const data = await res.json()
+    console.log("Respuesta FastAPI:", res.status, data)  // ← ve a la terminal de Next.js
+
+    if (!res.ok) {
+        return NextResponse.json({ error: data.detail || "Credenciales incorrectas" }, { status: 401 })
     }
 
-    const users = await query<{
-      IDUsuario: number
-      NombreUsuario: string
-      "Contraseña": string
-      Rol: "cliente" | "hostelero"
-    }>(
-      "SELECT IDUsuario, NombreUsuario, Contraseña, Rol FROM Usuarios WHERE NombreUsuario = @username",
-      [{ name: "username", type: sql.NVarChar, value: username }]
-    )
-
-    if (users.length === 0) {
-      return NextResponse.json(
-        { error: "Usuario o contraseña incorrectos" },
-        { status: 401 }
-      )
-    }
-
-    const user = users[0]
-    const validPassword = await bcrypt.compare(password, user["Contraseña"])
-
-    if (!validPassword) {
-      return NextResponse.json(
-        { error: "Usuario o contraseña incorrectos" },
-        { status: 401 }
-      )
-    }
-
-    const sessionUser: SessionUser = {
-      IDUsuario: user.IDUsuario,
-      NombreUsuario: user.NombreUsuario,
-      Rol: user.Rol,
-    }
-
-    await createSession(sessionUser)
-
-    return NextResponse.json({ user: sessionUser })
-  } catch (error: unknown) {
-    console.error("Login error:", error)
-    return NextResponse.json(
-      { error: "Error al iniciar sesion" },
-      { status: 500 }
-    )
-  }
+    const user = data
+    await createSession(user)
+    return NextResponse.json({ user })
 }
