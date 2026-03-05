@@ -1,40 +1,78 @@
 import { NextResponse } from "next/server"
-import { query } from "@/lib/db"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export async function GET() {
   try {
     const today = new Date().toISOString().split("T")[0]
 
-    const restaurantes = await query(
-      `SELECT 
-        r.IDRestaurante,
-        r.NombreRestaurante,
-        r.Direccion,
-        r.Descripcion,
-        r.ImagenURL,
-        r.IDHostelero,
-        m.IDMenu,
-        m.Fecha,
-        m.Precio,
-        m.ImagenMenu,
-        AVG(CAST(v.Puntuacion AS FLOAT)) AS PromedioValoracion,
-        COUNT(DISTINCT v.IDValoracion) AS TotalValoraciones
-      FROM Restaurantes r
-      LEFT JOIN Menus m ON r.IDRestaurante = m.IDRestaurante AND m.Fecha = @today
-      LEFT JOIN Platos p ON m.IDMenu = p.IDMenu
-      LEFT JOIN Valoraciones v ON p.IDPlato = v.IDPlato
-      GROUP BY r.IDRestaurante, r.NombreRestaurante, r.Direccion, r.Descripcion, 
-               r.ImagenURL, r.IDHostelero, m.IDMenu, m.Fecha, m.Precio, m.ImagenMenu
-      ORDER BY AVG(CAST(v.Puntuacion AS FLOAT)) DESC`,
-      [{ name: "today", type: (await import("@/lib/db")).sql.Date, value: today }]
+    // 1. Obtener todos los hosteleros
+    const resHosteleros = await fetch(`${API_URL}/hosteleros/`)
+    if (!resHosteleros.ok) {
+      return NextResponse.json({ error: "Error al obtener hosteleros" }, { status: 500 })
+    }
+    const hosteleros = await resHosteleros.json()
+
+    // 2. Para cada hostelero obtener su menu de hoy y valoraciones
+    const restaurantes = await Promise.all(
+      hosteleros.map(async (h: { IDUsuario: number; NombreRestaurante: string }) => {
+
+        // Menus del hostelero
+        const resMenus = await fetch(`${API_URL}/menus/?id_usuario=${h.IDUsuario}`)
+        const menusData = resMenus.ok ? await resMenus.json() : []
+        const menus = Array.isArray(menusData) ? menusData : []
+
+        // Menu de hoy
+        const menuHoy = menus.find((m: { Fecha: string }) => m.Fecha === today) || null
+
+        // Platos del menu de hoy
+        let platos: { IDPlato: number }[] = []
+        if (menuHoy) {
+          const resPlatos = await fetch(`${API_URL}/menus/${menuHoy.IDMenu}/platos`)
+          platos = resPlatos.ok ? await resPlatos.json() : []
+        }
+
+        // Valoraciones de todos los platos
+        let totalValoraciones = 0
+        let sumaValoraciones = 0
+
+        await Promise.all(
+          platos.map(async (p) => {
+            const resMedia = await fetch(`${API_URL}/valoraciones/media/${p.IDPlato}`)
+            if (resMedia.ok) {
+              const mediaData = await resMedia.json()
+              if (mediaData.media !== null) {
+                sumaValoraciones += mediaData.media
+                totalValoraciones++
+              }
+            }
+          })
+        )
+
+        const promedioValoracion = totalValoraciones > 0
+          ? sumaValoraciones / totalValoraciones
+          : null
+
+        return {
+          IDRestaurante:      h.IDUsuario,        // usamos IDUsuario como IDRestaurante
+          NombreRestaurante:  h.NombreRestaurante,
+          Direccion:          null,               // no existe en tu BD
+          Descripcion:        null,               // no existe en tu BD
+          IDMenu:             menuHoy?.IDMenu || null,
+          Precio:             null,               // no existe en tu BD
+          PromedioValoracion: promedioValoracion,
+          TotalValoraciones:  totalValoraciones,
+        }
+      })
     )
 
+    // Ordenar por valoracion descendente
+    restaurantes.sort((a, b) => (b.PromedioValoracion || 0) - (a.PromedioValoracion || 0))
+
     return NextResponse.json({ restaurantes })
+
   } catch (error: unknown) {
     console.error("Error fetching restaurantes:", error)
-    return NextResponse.json(
-      { error: "Error al obtener restaurantes" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Error al obtener restaurantes" }, { status: 500 })
   }
 }

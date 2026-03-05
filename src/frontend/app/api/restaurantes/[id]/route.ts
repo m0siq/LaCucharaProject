@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
-import { query, sql } from "@/lib/db"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+
 
 export async function GET(
   _request: Request,
@@ -7,60 +9,72 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const restauranteId = parseInt(id, 10)
-
-    const restaurantes = await query(
-      `SELECT r.*, u.NombreUsuario AS NombreHostelero
-       FROM Restaurantes r 
-       JOIN Usuarios u ON r.IDHostelero = u.IDUsuario
-       WHERE r.IDRestaurante = @id`,
-      [{ name: "id", type: sql.Int, value: restauranteId }]
-    )
-
-    if (restaurantes.length === 0) {
-      return NextResponse.json(
-        { error: "Restaurante no encontrado" },
-        { status: 404 }
-      )
-    }
-
     const today = new Date().toISOString().split("T")[0]
 
-    // Get today's menu with dishes and their ratings
-    const menus = await query(
-      `SELECT m.* FROM Menus m 
-       WHERE m.IDRestaurante = @id AND m.Fecha = @today`,
-      [
-        { name: "id", type: sql.Int, value: restauranteId },
-        { name: "today", type: sql.Date, value: today },
-      ]
-    )
+    // 1. Datos del hostelero
+    const resHostelero = await fetch(`${API_URL}/hosteleros/${id}`)
+    if (!resHostelero.ok) {
+      return NextResponse.json({ error: "Restaurante no encontrado" }, { status: 404 })
+    }
+    const hostelero = await resHostelero.json()
 
+    // 2. Todos los menus del hostelero
+    const resMenus = await fetch(`${API_URL}/menus/?id_usuario=${id}`)
+    const menusData = resMenus.ok ? await resMenus.json() : []
+    const menus = Array.isArray(menusData) ? menusData : []
+
+    const now = new Date()
+console.log("UTC date:", now.toISOString().split("T")[0])
+console.log("Local date:", now.toLocaleDateString("es-ES"))
+console.log("Menus raw:", JSON.stringify(menusData))
+    // 3. Menu de hoy
+    const menuHoy = menus.find((m: { Fecha: string }) => m.Fecha === today) || null
+
+    // 4. Platos del menu de hoy con valoraciones
     let platos: unknown[] = []
-    if (menus.length > 0) {
-      const menuId = (menus[0] as { IDMenu: number }).IDMenu
-      platos = await query(
-        `SELECT p.*,
-          AVG(CAST(v.Puntuacion AS FLOAT)) AS PromedioValoracion,
-          COUNT(v.IDValoracion) AS TotalValoraciones
-         FROM Platos p
-         LEFT JOIN Valoraciones v ON p.IDPlato = v.IDPlato
-         WHERE p.IDMenu = @menuId
-         GROUP BY p.IDPlato, p.IDMenu, p.Nombre, p.Tipo, p.Descripcion`,
-        [{ name: "menuId", type: sql.Int, value: menuId }]
+    if (menuHoy) {
+      const resPlatos = await fetch(`${API_URL}/menus/${menuHoy.IDMenu}/platos`)
+      const platosData = resPlatos.ok ? await resPlatos.json() : []
+
+      platos = await Promise.all(
+        platosData.map(async (p: {
+          IDPlato: number
+          NombrePlato: string
+          Descripcion: string | null
+          Tipo: string | null
+        }) => {
+          const resMedia = await fetch(`${API_URL}/valoraciones/media/${p.IDPlato}`)
+          const mediaData = resMedia.ok ? await resMedia.json() : { media: null }
+
+          const resVals = await fetch(`${API_URL}/valoraciones/?id_plato=${p.IDPlato}`)
+          const valsData = resVals.ok ? await resVals.json() : []
+
+          return {
+            IDPlato:            p.IDPlato,
+            Nombre:             p.NombrePlato,
+            Descripcion:        p.Descripcion,
+            Tipo:               (p.Tipo || "otro").toLowerCase(),
+            PromedioValoracion: mediaData.media,
+            TotalValoraciones:  Array.isArray(valsData) ? valsData.length : 0,
+          }
+        })
       )
     }
 
     return NextResponse.json({
-      restaurante: restaurantes[0],
-      menu: menus[0] || null,
+      restaurante: {
+        IDRestaurante:     hostelero.IDUsuario,
+        NombreRestaurante: hostelero.NombreRestaurante,
+        Direccion:         null,
+        Descripcion:       null,
+      },
+      menu:   menuHoy,
+      menus,            // ← todos los menus para el historial
       platos,
     })
+
   } catch (error: unknown) {
     console.error("Error fetching restaurante:", error)
-    return NextResponse.json(
-      { error: "Error al obtener restaurante" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Error al obtener restaurante" }, { status: 500 })
   }
 }
