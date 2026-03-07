@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { Loader2, Upload } from "lucide-react"
 import Link from "next/link"
 
 export function RegistroForm() {
@@ -33,6 +33,8 @@ export function RegistroForm() {
   const [nombreRestaurante, setNombreRestaurante] = useState("")
   const [direccion, setDireccion] = useState("")
   const [descripcion, setDescripcion] = useState("")
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string>("")
 
 async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -41,36 +43,65 @@ async function handleSubmit(e: React.FormEvent) {
     try {
       // ── Elige el endpoint según el rol ──────────────────────
       const endpoint = rol === "hostelero" ? "/hosteleros/" : "/clientes/"
-
-      const body =
-        rol === "hostelero"
-          ? { NombreUsuario: username, Contrasena: password, NombreRestaurante: nombreRestaurante }
-          : { NombreUsuario: username, Contrasena: password }
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        toast.error(data.detail || "Error al registrar")
-        return
-      }
-
-      toast.success("Cuenta creada con exito")
-
+      
       if (rol === "hostelero") {
+        // Para hostelero, enviar FormData con archivo
+        const formData = new FormData()
+        formData.append("NombreUsuario", username)
+        formData.append("Contrasena", password)
+        formData.append("NombreRestaurante", nombreRestaurante)
+        if (logoFile) {
+          formData.append("logo", logoFile)
+        }
+
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${endpoint}`, {
+          method: "POST",
+          body: formData,
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          toast.error(data.detail || "Error al registrar")
+          return
+        }
+
+        toast.success("Cuenta creada con exito")
         router.push("/hostelero")
       } else {
+        // Para cliente, JSON normal
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${endpoint}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ NombreUsuario: username, Contrasena: password }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          toast.error(data.detail || "Error al registrar")
+          return
+        }
+
+        toast.success("Cuenta creada con exito")
         router.push("/cliente")
       }
     } catch {
       toast.error("Error de conexion. Intentalo de nuevo.")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setLogoFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
     }
   }
 
@@ -138,6 +169,32 @@ async function handleSubmit(e: React.FormEvent) {
                   onChange={(e) => setNombreRestaurante(e.target.value)}
                   required
                 />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="reg-logo">Logo del Restaurante</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="reg-logo"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoChange}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById("reg-logo")?.click()}
+                    className="w-full"
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    {logoFile ? "Cambiar logo" : "Seleccionar logo"}
+                  </Button>
+                </div>
+                {logoPreview && (
+                  <div className="mt-2 flex items-center justify-center rounded-lg border border-border/50 bg-muted p-2">
+                    <img src={logoPreview} alt="Logo preview" className="h-20 w-20 object-contain" />
+                  </div>
+                )}
               </div>
             </>
           )}

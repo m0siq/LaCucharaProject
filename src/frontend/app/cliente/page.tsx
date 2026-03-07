@@ -2,16 +2,18 @@
 
 import useSWR from "swr"
 import Link from "next/link"
+import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { StarRating } from "@/components/cliente/star-rating"
-import { MapPin, UtensilsCrossed, Euro } from "lucide-react"
+import { MapPin, UtensilsCrossed, Euro, ImageIcon } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export default function ClienteFeed() {
   const { data, isLoading } = useSWR("/api/restaurantes", fetcher)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -54,13 +56,28 @@ export default function ClienteFeed() {
               Precio: number | null
               PromedioValoracion: number | null
               TotalValoraciones: number
+              hasLogo: boolean
+              logoBase64: string | null
             }) => (
               <Link
                 key={r.IDRestaurante}
                 href={`/cliente/restaurante/${r.IDRestaurante}`}
               >
-                <Card className="group h-full border-border/50 transition-all hover:border-primary/30 hover:shadow-md">
-                  <CardContent className="flex h-full flex-col gap-4 p-6">
+                <Card className="group h-full border-border/50 transition-all hover:border-primary/30 hover:shadow-md overflow-hidden">
+                  {/* Logo Image */}
+                  <div className="h-40 w-full bg-muted flex items-center justify-center">
+                    {r.logoBase64 ? (
+                      <img
+                        src={r.logoBase64}
+                        alt={r.NombreRestaurante}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="h-12 w-12 text-muted-foreground/20" />
+                    )}
+                  </div>
+
+                  <CardContent className="flex flex-col gap-4 p-6">
                     {/* Restaurant Header */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">

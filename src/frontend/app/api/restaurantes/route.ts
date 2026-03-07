@@ -12,10 +12,28 @@ export async function GET() {
       return NextResponse.json({ error: "Error al obtener hosteleros" }, { status: 500 })
     }
     const hosteleros = await resHosteleros.json()
+    console.log("Hosteleros from API:", hosteleros)
 
     // 2. Para cada hostelero obtener su menu de hoy y valoraciones
     const restaurantes = await Promise.all(
-      hosteleros.map(async (h: { IDUsuario: number; NombreRestaurante: string }) => {
+      hosteleros.map(async (h: { IDUsuario: number; NombreRestaurante: string; has_logo?: boolean }) => {
+
+        // Obtener logo del hostelero
+        let logoBase64: string | null = null
+        if (h.has_logo) {
+          try {
+            const logoRes = await fetch(`${API_URL}/hosteleros/${h.IDUsuario}/logo`)
+            if (logoRes.ok) {
+              const logoBlob = await logoRes.blob()
+              const arrayBuffer = await logoBlob.arrayBuffer()
+              const bytes = new Uint8Array(arrayBuffer)
+              const binary = bytes.reduce((acc, byte) => acc + String.fromCharCode(byte), '')
+              logoBase64 = `data:image/jpeg;base64,${btoa(binary)}`
+            }
+          } catch (e) {
+            console.log(`Failed to fetch logo for ${h.IDUsuario}:`, e)
+          }
+        }
 
         // Menus del hostelero
         const resMenus = await fetch(`${API_URL}/menus/?id_usuario=${h.IDUsuario}`)
@@ -62,6 +80,8 @@ export async function GET() {
           Precio:             null,               // no existe en tu BD
           PromedioValoracion: promedioValoracion,
           TotalValoraciones:  totalValoraciones,
+          hasLogo:            h.has_logo || false,
+          logoBase64:         logoBase64,         // incluir logo en base64
         }
       })
     )

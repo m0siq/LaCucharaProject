@@ -6,7 +6,6 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { StarRating } from "@/components/cliente/star-rating"
 import { RatingModal } from "@/components/cliente/rating-modal"
 import { TIPOS_PLATO } from "@/lib/types"
@@ -14,8 +13,8 @@ import {
   ArrowLeft,
   UtensilsCrossed,
   Star,
-  ImageIcon,
-  CalendarDays,
+  ZoomIn,
+  X,
 } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -32,6 +31,9 @@ export default function RestauranteDetail({
     id: number
     nombre: string
   } | null>(null)
+  
+  // Estado para el lightbox (imagen grande)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   if (isLoading) {
     return (
@@ -95,20 +97,7 @@ export default function RestauranteDetail({
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="hoy">
-        <TabsList className="mb-6">
-          <TabsTrigger value="hoy" className="flex items-center gap-2">
-            <UtensilsCrossed className="h-4 w-4" />
-            Menu de hoy
-          </TabsTrigger>
-          <TabsTrigger value="historial" className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4" />
-            Historial de menus
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ── TAB: MENU DE HOY ── */}
-        <TabsContent value="hoy">
+      <div>
           {!menu ? (
             <Card className="border-border/50">
               <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
@@ -121,15 +110,23 @@ export default function RestauranteDetail({
           ) : (
             <div className="flex flex-col gap-6">
               {/* Imagen del menu de hoy */}
-              {menu.Imagen_menu && (
+              {menu && menu.has_imagen ? (
                 <Card className="overflow-hidden border-border/50">
-                  <img
-                    src={`/api/menus/${menu.IDMenu}/imagen`}
-                    alt={`Menu del dia de ${restaurante.NombreRestaurante}`}
-                    className="w-full object-contain"
-                  />
+                  <div className="relative group cursor-pointer">
+                    <img
+                      src={`/api/menus/${menu.IDMenu}/imagen`}
+                      alt={`Menu del dia de ${restaurante.NombreRestaurante}`}
+                      className="h-48 w-full object-cover"
+                      onClick={() => {
+                        setLightboxUrl(`/api/menus/${menu.IDMenu}/imagen`)
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors pointer-events-none">
+                      <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </div>
                 </Card>
-              )}
+              ) : null}
 
               {/* Platos del menu de hoy */}
               {!platos?.length ? (
@@ -214,50 +211,7 @@ export default function RestauranteDetail({
               )}
             </div>
           )}
-        </TabsContent>
-
-        {/* ── TAB: HISTORIAL ── */}
-        <TabsContent value="historial">
-          {!menus?.length ? (
-            <Card className="border-border/50">
-              <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-                <CalendarDays className="h-12 w-12 text-muted-foreground/30" />
-                <p className="text-muted-foreground">
-                  Este restaurante no tiene menus publicados
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {menus.map((m: { IDMenu: number; Fecha: string; Imagen_menu: boolean }) => (
-                <Card key={m.IDMenu} className="overflow-hidden border-border/50">
-                  {m.Imagen_menu ? (
-                    <img
-                      src={`/api/menus/${m.IDMenu}/imagen`}
-                      alt={`Menu ${m.Fecha}`}
-                      className="h-48 w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-48 items-center justify-center bg-muted">
-                      <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
-                    </div>
-                  )}
-                  <CardContent className="px-4 py-3">
-                    <p className="text-sm font-medium text-foreground">
-                      {new Date(m.Fecha).toLocaleDateString("es-ES", {
-                        weekday: "long",
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+        </div>
 
       {/* Modal valoracion */}
       {ratingPlato && (
@@ -268,6 +222,23 @@ export default function RestauranteDetail({
           platoNombre={ratingPlato.nombre}
           onSuccess={() => mutate()}
         />
+      )}
+
+      {/* Lightbox Modal */}
+      {lightboxUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="relative w-full max-w-4xl">
+            <img src={lightboxUrl} alt="Menu ampliado" className="max-h-[90vh] w-full object-contain" />
+            <button
+              type="button"
+              onClick={() => setLightboxUrl(null)}
+              className="absolute right-4 top-4 rounded-lg bg-black/50 p-2 text-white transition-colors hover:bg-black/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              aria-label="Cerrar"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

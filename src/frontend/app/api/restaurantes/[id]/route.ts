@@ -68,8 +68,8 @@ console.log("Menus raw:", JSON.stringify(menusData))
         Direccion:         null,
         Descripcion:       null,
       },
-      menu:   menuHoy,
-      menus,            // ← todos los menus para el historial
+      menu:   menuHoy || null,
+      menus:  menus,
       platos,
     })
 
