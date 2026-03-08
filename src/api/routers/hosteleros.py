@@ -2,7 +2,8 @@
 src/api/routers/hosteleros.py
 """
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_db
@@ -15,9 +16,18 @@ from src.database.crud_hostelero import (
 router = APIRouter(prefix="/hosteleros", tags=["Hosteleros"])
 
 
-@router.get("/", response_model=list[HosteleroOut])
+@router.get("/", response_model=list[dict])
 async def listar_hosteleros(db: AsyncSession = Depends(get_db)):
-    return await get_all_hosteleros(db)
+    hosteleros = await get_all_hosteleros(db)
+    # Mapear Logo a has_logo
+    return [
+        {
+            "IDUsuario": h.IDUsuario,
+            "NombreRestaurante": h.NombreRestaurante,
+            "has_logo": bool(h.Logo),
+        }
+        for h in hosteleros
+    ]
 
 
 @router.get("/{id_usuario}", response_model=HosteleroOut)
@@ -29,12 +39,23 @@ async def obtener_hostelero(id_usuario: int, db: AsyncSession = Depends(get_db))
 
 
 @router.post("/", response_model=HosteleroOut, status_code=201)
-async def crear_hostelero(datos: HosteleroCreate, db: AsyncSession = Depends(get_db)):
+async def crear_hostelero(
+    NombreUsuario: str = Form(...),
+    Contrasena: str = Form(...),
+    NombreRestaurante: str = Form(...),
+    logo: UploadFile = File(None),
+    db: AsyncSession = Depends(get_db),
+):
+    logo_contenido = None
+    if logo:
+        logo_contenido = await logo.read()
+    
     return await create_hostelero(
         db,
-        datos.NombreUsuario,
-        datos.Contrasena,
-        datos.NombreRestaurante,
+        NombreUsuario,
+        Contrasena,
+        NombreRestaurante,
+        logo=logo_contenido,
     )
 
 

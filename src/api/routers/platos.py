@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_db
-from src.api.schemas import PlatoCreate, PlatoUpdate, PlatoOut
+from src.api.schemas import PlatoCreate, PlatoUpdate, PlatoOut, PlatoConMenuCreate, MenuPlatoOut
 from src.database.crud_plato import (
-    create_plato, get_plato_by_id, get_all_platos,
+    create_plato, create_plato_con_menu, get_plato_by_id, get_all_platos,
     get_platos_by_tipo, search_platos, update_plato, delete_plato,
 )
 
@@ -36,9 +36,33 @@ async def obtener_plato(id_plato: int, db: AsyncSession = Depends(get_db)):
     return p
 
 
-@router.post("/", response_model=PlatoOut, status_code=201)
-async def crear_plato(datos: PlatoCreate, db: AsyncSession = Depends(get_db)):
-    return await create_plato(db, datos.NombrePlato, datos.Descripcion, datos.Tipo)
+@router.post("/", response_model=MenuPlatoOut, status_code=201)
+async def crear_plato(datos: PlatoConMenuCreate, db: AsyncSession = Depends(get_db)):
+    """Crea un plato y lo asocia automáticamente a un menú en MENU_PLATO."""
+    try:
+        plato, menu_plato = await create_plato_con_menu(
+            db, 
+            datos.IDMenu, 
+            datos.NombrePlato, 
+            datos.Descripcion, 
+            datos.Tipo
+        )
+        await db.commit()
+        
+        # Retornar con la estructura de MenuPlatoOut
+        return {
+            "IDMenu": menu_plato.IDMenu,
+            "IDPlato": plato.IDPlato,
+            "plato": {
+                "IDPlato": plato.IDPlato,
+                "NombrePlato": plato.NombrePlato,
+                "Descripcion": plato.Descripcion,
+                "Tipo": plato.Tipo,
+            }
+        }
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"Error al crear plato: {str(e)}")
 
 
 @router.put("/{id_plato}", response_model=PlatoOut)

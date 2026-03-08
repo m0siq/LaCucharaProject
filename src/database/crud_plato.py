@@ -6,7 +6,7 @@ CRUD para el modelo Plato.
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.database.models import Plato
+from src.database.models import Plato, MenuPlato
 
 
 # ── CREATE ────────────────────────────────────────────────────────────────────
@@ -20,6 +20,27 @@ async def create_plato(
     session.add(plato)
     await session.flush()
     return plato
+
+
+async def create_plato_con_menu(
+    session: AsyncSession,
+    id_menu: int,
+    nombre: str,
+    descripcion: str | None = None,
+    tipo: str | None = None,
+) -> tuple[Plato, MenuPlato]:
+    """Crea un plato y lo asocia a un menú en MENU_PLATO."""
+    # Crear el plato
+    plato = Plato(NombrePlato=nombre, Descripcion=descripcion, Tipo=tipo)
+    session.add(plato)
+    await session.flush()
+    
+    # Crear la asociación en MENU_PLATO
+    menu_plato = MenuPlato(IDMenu=id_menu, IDPlato=plato.IDPlato)
+    session.add(menu_plato)
+    await session.flush()
+    
+    return plato, menu_plato
 
 
 # ── READ ──────────────────────────────────────────────────────────────────────

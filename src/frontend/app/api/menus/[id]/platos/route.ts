@@ -1,33 +1,32 @@
 import { NextResponse } from "next/server"
-import { query, sql } from "@/lib/db"
 import { requireRole } from "@/lib/auth"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireRole("hostelero")
     const { id } = await params
-    const platos = await query(
-      `SELECT p.*,
-        AVG(CAST(v.Puntuacion AS FLOAT)) AS PromedioValoracion,
-        COUNT(v.IDValoracion) AS TotalValoraciones
-       FROM Platos p
-       LEFT JOIN Valoraciones v ON p.IDPlato = v.IDPlato
-       WHERE p.IDMenu = @menuId
-       GROUP BY p.IDPlato, p.IDMenu, p.Nombre, p.Tipo, p.Descripcion
-       ORDER BY 
-         CASE p.Tipo 
-           WHEN 'primero' THEN 1 
-           WHEN 'segundo' THEN 2 
-           WHEN 'postre' THEN 3 
-           WHEN 'bebida' THEN 4 
-           ELSE 5 
-         END`,
-      [{ name: "menuId", type: sql.Int, value: parseInt(id) }]
-    )
 
-    return NextResponse.json({ platos })
+    // Proxy al backend FastAPI
+    const res = await fetch(`${API_URL}/menus/${id}/platos`)
+
+
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: "Error al obtener platos del menú" },
+        { status: res.status }
+      )
+    }
+
+    // El backend devuelve un array directamente
+    const platos = await res.json()
+    return NextResponse.json(platos)
+
+
   } catch (error: unknown) {
     console.error("Error fetching platos:", error)
     return NextResponse.json(
@@ -44,28 +43,30 @@ export async function POST(
   try {
     await requireRole("hostelero")
     const { id } = await params
-    const { nombre, tipo, descripcion } = await request.json()
+    const { IDMenu, NombrePlato, Descripcion, Tipo } = await request.json()
 
-    if (!nombre || !tipo) {
+    // Proxy al backend FastAPI para crear plato
+    const res = await fetch(`${API_URL}/platos/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        IDMenu: parseInt(id),
+        NombrePlato,
+        Descripcion,
+        Tipo,
+      }),
+    })
+
+    if (!res.ok) {
       return NextResponse.json(
-        { error: "Nombre y tipo son obligatorios" },
-        { status: 400 }
+        { error: "Error al crear plato" },
+        { status: res.status }
       )
     }
 
-    const result = await query<{ IDPlato: number }>(
-      `INSERT INTO Platos (IDMenu, Nombre, Tipo, Descripcion)
-       OUTPUT INSERTED.IDPlato
-       VALUES (@menuId, @nombre, @tipo, @descripcion)`,
-      [
-        { name: "menuId", type: sql.Int, value: parseInt(id) },
-        { name: "nombre", type: sql.NVarChar, value: nombre },
-        { name: "tipo", type: sql.NVarChar, value: tipo },
-        { name: "descripcion", type: sql.NVarChar, value: descripcion?.substring(0, 150) || null },
-      ]
-    )
+    const plato = await res.json()
+    return NextResponse.json(plato, { status: 201 })
 
-    return NextResponse.json({ platoId: result[0].IDPlato }, { status: 201 })
   } catch (error: unknown) {
     console.error("Error creating plato:", error)
     return NextResponse.json(

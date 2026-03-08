@@ -38,7 +38,7 @@ class HosteleroUpdate(BaseModel):
 class HosteleroOut(BaseModel):
     IDUsuario:         int
     NombreRestaurante: str
-    NombreUsuario:     str | None = None
+    has_logo:          bool = False
 
     model_config = {"from_attributes": True}
 
@@ -72,6 +72,13 @@ class PlatoCreate(BaseModel):
     Tipo:        str | None = None
 
 
+class PlatoConMenuCreate(BaseModel):
+    IDMenu:      int
+    NombrePlato: str = Field(..., min_length=2, max_length=150)
+    Descripcion: str | None = None
+    Tipo:        str | None = None
+
+
 class PlatoUpdate(BaseModel):
     NombrePlato: str | None = None
     Descripcion: str | None = None
@@ -83,6 +90,14 @@ class PlatoOut(BaseModel):
     NombrePlato: str
     Descripcion: str | None
     Tipo:        str | None
+
+    model_config = {"from_attributes": True}
+
+
+class MenuPlatoOut(BaseModel):
+    IDMenu:      int
+    IDPlato:     int
+    plato:       PlatoOut
 
     model_config = {"from_attributes": True}
 

@@ -4,7 +4,6 @@ import { useState } from "react"
 import useSWR, { mutate } from "swr"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -23,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { toast } from "sonner"
-import { Loader2, Plus, Trash2, Pencil, Check, X, ChefHat, Scan } from "lucide-react"
+import { Loader2, Trash2, Pencil, Check, X, ChefHat, Scan } from "lucide-react"
 import { TIPOS_PLATO } from "@/lib/types"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -53,54 +52,28 @@ export default function PlatosPage() {
     fetcher
   )
 
-  const [nombre, setNombre] = useState("")
-  const [tipo, setTipo] = useState("")
-  const [descripcion, setDescripcion] = useState("")
-  const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editData, setEditData] = useState({ nombre: "", tipo: "", descripcion: "" })
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [ocrLoading, setOcrLoading] = useState(false)
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault()
-    if (!todayMenu) return
-    setAdding(true)
-
-    try {
-      const res = await fetch(`/api/menus/${todayMenu.IDMenu}/platos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, tipo, descripcion }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json()
-        toast.error(data.error)
-        return
-      }
-
-      toast.success("Plato anadido")
-      setNombre("")
-      setTipo("")
-      setDescripcion("")
-      mutate(`/api/menus/${todayMenu.IDMenu}/platos`)
-    } catch {
-      toast.error("Error al anadir plato")
-    } finally {
-      setAdding(false)
-    }
-  }
-
   async function handleUpdate(platoId: number) {
     try {
-      await fetch(`/api/platos/${platoId}`, {
+      const res = await fetch(`/api/platos/${platoId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editData),
       })
+
+      if (!res.ok) {
+        const error = await res.json()
+        toast.error(error.error || "Error al actualizar plato")
+        return
+      }
+
       toast.success("Plato actualizado")
       setEditingId(null)
+      setEditData({ nombre: "", tipo: "", descripcion: "" })
       if (todayMenu) mutate(`/api/menus/${todayMenu.IDMenu}/platos`)
     } catch {
       toast.error("Error al actualizar plato")
@@ -110,7 +83,14 @@ export default function PlatosPage() {
   async function handleDelete(platoId: number) {
     setDeletingId(platoId)
     try {
-      await fetch(`/api/platos/${platoId}`, { method: "DELETE" })
+      const res = await fetch(`/api/platos/${platoId}`, { method: "DELETE" })
+
+      if (!res.ok) {
+        const error = await res.json()
+        toast.error(error.error || "Error al eliminar plato")
+        return
+      }
+
       toast.success("Plato eliminado")
       if (todayMenu) mutate(`/api/menus/${todayMenu.IDMenu}/platos`)
     } catch {
@@ -146,10 +126,10 @@ export default function PlatosPage() {
     }
   }
 
-  function startEdit(plato: { IDPlato: number; Nombre: string; Tipo: string; Descripcion: string | null }) {
+  function startEdit(plato: { IDPlato: number; NombrePlato: string; Tipo: string; Descripcion: string | null }) {
     setEditingId(plato.IDPlato)
     setEditData({
-      nombre: plato.Nombre,
+      nombre: plato.NombrePlato,
       tipo: plato.Tipo,
       descripcion: plato.Descripcion || "",
     })
@@ -201,75 +181,6 @@ export default function PlatosPage() {
         </Card>
       ) : (
         <>
-          {/* Add dish form */}
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-serif text-xl">
-                <Plus className="h-5 w-5 text-primary" />
-                Anadir plato
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAdd} className="flex flex-col gap-4">
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="plato-nombre">Nombre</Label>
-                    <Input
-                      id="plato-nombre"
-                      placeholder="Ej: Gazpacho andaluz"
-                      value={nombre}
-                      onChange={(e) => setNombre(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="plato-tipo">Tipo</Label>
-                    <Select value={tipo} onValueChange={setTipo} required>
-                      <SelectTrigger id="plato-tipo">
-                        <SelectValue placeholder="Selecciona tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIPOS_PLATO.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>
-                            {t.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="plato-desc">
-                      Descripcion{" "}
-                      <span className="text-xs text-muted-foreground">
-                        ({descripcion.length}/150)
-                      </span>
-                    </Label>
-                    <Input
-                      id="plato-desc"
-                      placeholder="Breve descripcion"
-                      value={descripcion}
-                      onChange={(e) =>
-                        setDescripcion(e.target.value.slice(0, 150))
-                      }
-                    />
-                  </div>
-                </div>
-                <Button
-                  type="submit"
-                  disabled={adding || !tipo}
-                  className="w-fit"
-                >
-                  {adding ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="mr-2 h-4 w-4" />
-                  )}
-                  Anadir Plato
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
           {/* Dishes table */}
           <Card className="border-border/50">
             <CardHeader>
@@ -284,7 +195,7 @@ export default function PlatosPage() {
                     <Skeleton key={i} className="h-12" />
                   ))}
                 </div>
-              ) : !platosData?.platos?.length ? (
+              ) : !platosData?.length ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">
                   No hay platos anadidos al menu de hoy
                 </p>
@@ -302,10 +213,10 @@ export default function PlatosPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {platosData.platos.map(
+                      {platosData.map(
                         (plato: {
                           IDPlato: number
-                          Nombre: string
+                          NombrePlato: string
                           Tipo: string
                           Descripcion: string | null
                         }) => (
@@ -323,7 +234,7 @@ export default function PlatosPage() {
                                   className="h-8"
                                 />
                               ) : (
-                                plato.Nombre
+                                plato.NombrePlato
                               )}
                             </TableCell>
                             <TableCell>
