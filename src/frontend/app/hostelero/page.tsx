@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -67,11 +68,13 @@ export default function HosteleroDashboard() {
                 : "Sin valoraciones"
             }
             icon={<Star className="h-5 w-5 text-primary" />}
+            href="/hostelero/valoraciones"
           />
           <StatCard
             title="Total Valoraciones"
             value={String(restaurante.TotalValoraciones || 0)}
             icon={<MessageSquare className="h-5 w-5 text-primary" />}
+            href="/hostelero/valoraciones"
           />
         </div>
       )}
@@ -111,13 +114,15 @@ function StatCard({
   title,
   value,
   icon,
+  href,
 }: {
   title: string
   value: string
   icon: React.ReactNode
+  href?: string
 }) {
-  return (
-    <Card className="border-border/50">
+  const inner = (
+    <Card className={`border-border/50 ${href ? "transition-colors hover:border-primary/40 hover:bg-muted/30" : ""}`}>
       <CardContent className="flex items-center gap-4 p-6">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
           {icon}
@@ -131,4 +136,9 @@ function StatCard({
       </CardContent>
     </Card>
   )
+
+  if (href) {
+    return <Link href={href}>{inner}</Link>
+  }
+  return inner
 }

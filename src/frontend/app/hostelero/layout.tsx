@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   BookOpen,
   ChefHat,
+  MessageSquare,
   LogOut,
   Menu,
   X,
@@ -17,9 +18,10 @@ import {
 import { toast } from "sonner"
 
 const NAV_ITEMS = [
-  { href: "/hostelero", label: "Panel", icon: LayoutDashboard },
-  { href: "/hostelero/menu", label: "Menu del Dia", icon: BookOpen },
-  { href: "/hostelero/platos", label: "Platos", icon: ChefHat },
+  { href: "/hostelero",             label: "Panel",        icon: LayoutDashboard },
+  { href: "/hostelero/menu",        label: "Menu del Dia", icon: BookOpen        },
+  { href: "/hostelero/platos",      label: "Platos",       icon: ChefHat         },
+  { href: "/hostelero/valoraciones", label: "Reseñas",     icon: MessageSquare   },
 ]
 
 export default function HosteleroLayout({

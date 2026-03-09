@@ -16,19 +16,54 @@ export async function GET() {
 
     // Menus del hostelero
     const resMenus = await fetch(`${API_URL}/menus?id_usuario=${user.IDUsuario}`)
-    const menus = resMenus.ok ? await resMenus.json() : []
+    const menus: { IDMenu: number }[] = resMenus.ok ? await resMenus.json() : []
 
-    // Valoraciones medias de cada plato del hostelero
-    const resPlatos = await fetch(`${API_URL}/platos/`)
-    const platos = resPlatos.ok ? await resPlatos.json() : []
+    // Platos de cada menú (en paralelo)
+    const platosPerMenu = await Promise.all(
+      menus.map((menu) =>
+        fetch(`${API_URL}/menus/${menu.IDMenu}/platos`)
+          .then((r) => (r.ok ? r.json() : []))
+          .then((platos: { IDPlato: number; NombrePlato: string; Tipo: string | null }[]) => platos)
+      )
+    )
+
+    // Platos únicos del hostelero
+    const uniquePlatosMap = new Map<number, { IDPlato: number; NombrePlato: string; Tipo: string | null }>()
+    for (const platos of platosPerMenu) {
+      for (const p of platos) {
+        uniquePlatosMap.set(p.IDPlato, p)
+      }
+    }
+    const uniquePlatos = Array.from(uniquePlatosMap.values())
+
+    // Valoraciones de cada plato (en paralelo)
+    const valoracionesPorPlato = await Promise.all(
+      uniquePlatos.map((plato) =>
+        fetch(`${API_URL}/valoraciones/?id_plato=${plato.IDPlato}`)
+          .then((r) => (r.ok ? r.json() : []))
+          .then((vals: { Puntuacion: number | null }[]) => vals)
+      )
+    )
+
+    const todasValoraciones = valoracionesPorPlato.flat()
+    const TotalValoraciones = todasValoraciones.length
+    const puntuaciones = todasValoraciones
+      .map((v) => v.Puntuacion)
+      .filter((p): p is number => p !== null)
+    const PromedioValoracion =
+      puntuaciones.length > 0
+        ? puntuaciones.reduce((a, b) => a + b, 0) / puntuaciones.length
+        : null
 
     return NextResponse.json({
       restaurante: {
-        IDUsuario:         hostelero.IDUsuario,
-        NombreRestaurante: hostelero.NombreRestaurante,
-        TotalMenus:        menus.length,
-        TotalPlatos:       platos.length,
-      }
+        IDUsuario:          hostelero.IDUsuario,
+        NombreRestaurante:  hostelero.NombreRestaurante,
+        TotalMenus:         menus.length,
+        TotalPlatos:        uniquePlatos.length,
+        PromedioValoracion,
+        TotalValoraciones,
+      },
     })
 
   } catch (error: unknown) {

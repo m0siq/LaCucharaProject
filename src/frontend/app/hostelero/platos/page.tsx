@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { toast } from "sonner"
-import { Loader2, Trash2, Pencil, Check, X, ChefHat, Scan } from "lucide-react"
+import { Loader2, Trash2, Pencil, Check, X, ChefHat, Scan, Plus } from "lucide-react"
 import { TIPOS_PLATO } from "@/lib/types"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -56,6 +56,10 @@ export default function PlatosPage() {
   const [editData, setEditData] = useState({ nombre: "", tipo: "", descripcion: "" })
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [ocrLoading, setOcrLoading] = useState(false)
+
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [addData, setAddData] = useState({ nombre: "", tipo: TIPOS_PLATO[0].value as string, descripcion: "" })
+  const [addingPlato, setAddingPlato] = useState(false)
 
   async function handleUpdate(platoId: number) {
     try {
@@ -97,6 +101,41 @@ export default function PlatosPage() {
       toast.error("Error al eliminar plato")
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  async function handleAddPlato() {
+    if (!todayMenu) return
+    if (!addData.nombre.trim() || addData.nombre.trim().length < 2) {
+      toast.error("El nombre debe tener al menos 2 caracteres")
+      return
+    }
+    setAddingPlato(true)
+    try {
+      const res = await fetch(`/api/menus/${todayMenu.IDMenu}/platos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          NombrePlato: addData.nombre.trim(),
+          Tipo: addData.tipo,
+          Descripcion: addData.descripcion.trim() || null,
+        }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        toast.error(error.error || "Error al crear plato")
+        return
+      }
+
+      toast.success("Plato añadido")
+      setShowAddForm(false)
+      setAddData({ nombre: "", tipo: TIPOS_PLATO[0].value as string, descripcion: "" })
+      mutate(`/api/menus/${todayMenu.IDMenu}/platos`)
+    } catch {
+      toast.error("Error al crear plato")
+    } finally {
+      setAddingPlato(false)
     }
   }
 
@@ -149,19 +188,32 @@ export default function PlatosPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="font-serif text-3xl text-foreground">Platos del Dia</h1>
         {todayMenu && (
-          <Button
-            variant="outline"
-            onClick={handleOCR}
-            disabled={ocrLoading}
-            className="w-fit"
-          >
-            {ocrLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Scan className="mr-2 h-4 w-4" />
-            )}
-            Extraer platos con OCR
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={handleOCR}
+              disabled={ocrLoading}
+              className="w-fit"
+            >
+              {ocrLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Scan className="mr-2 h-4 w-4" />
+              )}
+              Extraer platos con OCR
+            </Button>
+            <Button
+              onClick={() => {
+                setShowAddForm(true)
+                setEditingId(null)
+              }}
+              disabled={showAddForm}
+              className="w-fit"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Añadir Plato
+            </Button>
+          </div>
         )}
       </div>
 
@@ -350,6 +402,81 @@ export default function PlatosPage() {
                       )}
                     </TableBody>
                   </Table>
+                </div>
+              )}
+              {showAddForm && (
+                <div className="mt-4 rounded-lg border border-border/50 p-4">
+                  <p className="mb-3 text-sm font-medium">Nuevo plato</p>
+                  <div className="flex flex-wrap gap-3">
+                    <Input
+                      placeholder="Nombre *"
+                      value={addData.nombre}
+                      onChange={(e) =>
+                        setAddData({ ...addData, nombre: e.target.value })
+                      }
+                      className="h-9 w-40"
+                      maxLength={150}
+                    />
+                    <Select
+                      value={addData.tipo}
+                      onValueChange={(v) =>
+                        setAddData({ ...addData, tipo: v })
+                      }
+                    >
+                      <SelectTrigger className="h-9 w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIPOS_PLATO.map((t) => (
+                          <SelectItem key={t.value} value={t.value}>
+                            {t.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Descripcion"
+                      value={addData.descripcion}
+                      onChange={(e) =>
+                        setAddData({
+                          ...addData,
+                          descripcion: e.target.value.slice(0, 150),
+                        })
+                      }
+                      className="h-9 min-w-48 flex-1"
+                      maxLength={150}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleAddPlato}
+                        disabled={addingPlato}
+                      >
+                        {addingPlato ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="mr-2 h-4 w-4" />
+                        )}
+                        Guardar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setShowAddForm(false)
+                          setAddData({
+                            nombre: "",
+                            tipo: TIPOS_PLATO[0].value as string,
+                            descripcion: "",
+                          })
+                        }}
+                        disabled={addingPlato}
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
             </CardContent>

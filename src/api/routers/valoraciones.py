@@ -10,6 +10,7 @@ from src.api.schemas import ValoracionCreate, ValoracionUpdate, ValoracionOut
 from src.database.crud_valoracion import (
     create_valoracion, get_valoracion_by_id, get_all_valoraciones,
     get_valoraciones_by_plato, get_valoraciones_by_usuario,
+    get_valoracion_usuario_plato,
     get_media_puntuacion, update_valoracion, delete_valoracion,
 )
 
@@ -22,6 +23,9 @@ async def listar_valoraciones(
     id_usuario: int | None = None,
     db: AsyncSession = Depends(get_db),
 ):
+    if id_plato and id_usuario:
+        v = await get_valoracion_usuario_plato(db, id_usuario, id_plato)
+        return [v] if v else []
     if id_plato:
         return await get_valoraciones_by_plato(db, id_plato)
     if id_usuario:

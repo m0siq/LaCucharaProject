@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { StarRating } from "./star-rating"
 import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { Loader2, Trash2 } from "lucide-react"
 
 interface RatingModalProps {
   open: boolean
@@ -33,6 +33,30 @@ export function RatingModal({
   const [puntuacion, setPuntuacion] = useState(0)
   const [comentario, setComentario] = useState("")
   const [loading, setLoading] = useState(false)
+  const [deletingRating, setDeletingRating] = useState(false)
+
+  async function handleDelete() {
+    setDeletingRating(true)
+    try {
+      const res = await fetch(`/api/platos/${platoId}/valoraciones`, {
+        method: "DELETE",
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || "Error al retirar reseña")
+        return
+      }
+      toast.success("Reseña retirada")
+      setPuntuacion(0)
+      setComentario("")
+      onOpenChange(false)
+      onSuccess()
+    } catch {
+      toast.error("Error de conexion")
+    } finally {
+      setDeletingRating(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -101,7 +125,7 @@ export function RatingModal({
               rows={3}
             />
           </div>
-          <Button type="submit" disabled={loading || puntuacion === 0}>
+          <Button type="submit" disabled={loading || deletingRating || puntuacion === 0}>
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -110,6 +134,20 @@ export function RatingModal({
             ) : (
               "Enviar Valoracion"
             )}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            disabled={loading || deletingRating}
+            onClick={handleDelete}
+          >
+            {deletingRating ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-2 h-4 w-4" />
+            )}
+            Retirar reseña
           </Button>
         </form>
       </DialogContent>

@@ -4,9 +4,9 @@ crud_plato.py
 CRUD para el modelo Plato.
 """
 
-from sqlalchemy import select
+from sqlalchemy import select, delete as sql_delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.database.models import Plato, MenuPlato
+from src.database.models import Plato, MenuPlato, Valoracion
 
 
 # ── CREATE ────────────────────────────────────────────────────────────────────
@@ -92,6 +92,9 @@ async def delete_plato(session: AsyncSession, id_plato: int) -> bool:
     plato = await get_plato_by_id(session, id_plato)
     if not plato:
         return False
+    # Borrar dependientes explícitamente (los FK en BD no tienen CASCADE real)
+    await session.execute(sql_delete(Valoracion).where(Valoracion.IDPlato == id_plato))
+    await session.execute(sql_delete(MenuPlato).where(MenuPlato.IDPlato == id_plato))
     await session.delete(plato)
     await session.flush()
     return True

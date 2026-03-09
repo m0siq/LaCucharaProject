@@ -100,7 +100,7 @@ class Plato(Base):
 
     # Relaciones
     valoraciones: Mapped[list["Valoracion"]] = relationship(back_populates="plato")
-    menu_platos:  Mapped[list["MenuPlato"]]  = relationship(back_populates="plato")
+    menu_platos:  Mapped[list["MenuPlato"]]  = relationship(back_populates="plato", passive_deletes=True)
 
     def __repr__(self) -> str:
         return f"<Plato id={self.IDPlato} nombre={self.NombrePlato!r}>"
