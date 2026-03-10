@@ -6,8 +6,7 @@ import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { StarRating } from "@/components/cliente/star-rating"
-import { MapPin, UtensilsCrossed, Euro, ImageIcon } from "lucide-react"
+import { MapPin, UtensilsCrossed, Euro, ImageIcon, Star } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -115,20 +114,12 @@ export default function ClienteFeed() {
                     {/* Rating & Status */}
                     <div className="flex items-center justify-between border-t border-border/50 pt-4">
                       <div className="flex items-center gap-2">
-                        <StarRating
-                          value={Math.round(r.PromedioValoracion || 0)}
-                          readonly
-                          size="sm"
-                        />
-                        {r.PromedioValoracion ? (
-                          <span className="text-sm font-medium text-foreground">
-                            {Number(r.PromedioValoracion).toFixed(1)}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            Sin valoraciones
-                          </span>
-                        )}
+                        <Star className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium text-card-foreground">
+                          {r.PromedioValoracion
+                            ? `${Number(r.PromedioValoracion).toFixed(1)} / 5`
+                            : "Sin valoraciones"}
+                        </span>
                       </div>
                       {r.TotalValoraciones > 0 && (
                         <span className="text-xs text-muted-foreground">

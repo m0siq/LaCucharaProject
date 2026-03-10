@@ -35,53 +35,61 @@ export async function GET() {
           }
         }
 
-        // Menus del hostelero
+        // Todos los menus del hostelero (igual que en /api/hostelero/restaurante)
         const resMenus = await fetch(`${API_URL}/menus/?id_usuario=${h.IDUsuario}`)
         const menusData = resMenus.ok ? await resMenus.json() : []
-        const menus = Array.isArray(menusData) ? menusData : []
+        const menus: { IDMenu: number; Fecha: string }[] = Array.isArray(menusData) ? menusData : []
 
-        // Menu de hoy
-        const menuHoy = menus.find((m: { Fecha: string }) => m.Fecha === today) || null
+        // Menu de hoy (solo para IDMenu y Precio)
+        const menuHoy = menus.find((m) => m.Fecha === today) || null
 
-        // Platos del menu de hoy
-        let platos: { IDPlato: number }[] = []
-        if (menuHoy) {
-          const resPlatos = await fetch(`${API_URL}/menus/${menuHoy.IDMenu}/platos`)
-          platos = resPlatos.ok ? await resPlatos.json() : []
-        }
-
-        // Valoraciones de todos los platos
-        let totalValoraciones = 0
-        let sumaValoraciones = 0
-
-        await Promise.all(
-          platos.map(async (p) => {
-            const resMedia = await fetch(`${API_URL}/valoraciones/media/${p.IDPlato}`)
-            if (resMedia.ok) {
-              const mediaData = await resMedia.json()
-              if (mediaData.media !== null) {
-                sumaValoraciones += mediaData.media
-                totalValoraciones++
-              }
-            }
-          })
+        // Platos únicos de TODOS los menus (igual que hostelero)
+        const platosPerMenu = await Promise.all(
+          menus.map((menu) =>
+            fetch(`${API_URL}/menus/${menu.IDMenu}/platos`)
+              .then((r) => (r.ok ? r.json() : []))
+              .then((platos: { IDPlato: number }[]) => platos)
+          )
         )
 
-        const promedioValoracion = totalValoraciones > 0
-          ? sumaValoraciones / totalValoraciones
-          : null
+        const uniquePlatosMap = new Map<number, { IDPlato: number }>()
+        for (const platos of platosPerMenu) {
+          for (const p of platos) {
+            uniquePlatosMap.set(p.IDPlato, p)
+          }
+        }
+        const uniquePlatos = Array.from(uniquePlatosMap.values())
+
+        // Valoraciones de todos los platos únicos (igual que hostelero)
+        const valoracionesPorPlato = await Promise.all(
+          uniquePlatos.map((plato) =>
+            fetch(`${API_URL}/valoraciones/?id_plato=${plato.IDPlato}`)
+              .then((r) => (r.ok ? r.json() : []))
+              .then((vals: { Puntuacion: number | null }[]) => vals)
+          )
+        )
+
+        const todasValoraciones = valoracionesPorPlato.flat()
+        const TotalValoraciones = todasValoraciones.length
+        const puntuaciones = todasValoraciones
+          .map((v) => v.Puntuacion)
+          .filter((p): p is number => p !== null)
+        const promedioValoracion =
+          puntuaciones.length > 0
+            ? puntuaciones.reduce((a, b) => a + b, 0) / puntuaciones.length
+            : null
 
         return {
-          IDRestaurante:      h.IDUsuario,        // usamos IDUsuario como IDRestaurante
+          IDRestaurante:      h.IDUsuario,
           NombreRestaurante:  h.NombreRestaurante,
-          Direccion:          null,               // no existe en tu BD
-          Descripcion:        null,               // no existe en tu BD
+          Direccion:          null,
+          Descripcion:        null,
           IDMenu:             menuHoy?.IDMenu || null,
-          Precio:             null,               // no existe en tu BD
+          Precio:             null,
           PromedioValoracion: promedioValoracion,
-          TotalValoraciones:  totalValoraciones,
+          TotalValoraciones,
           hasLogo:            h.has_logo || false,
-          logoBase64:         logoBase64,         // incluir logo en base64
+          logoBase64,
         }
       })
     )
