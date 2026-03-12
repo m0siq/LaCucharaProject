@@ -54,11 +54,10 @@ export default function MenuPage() {
       // 2. Subir imagen si se seleccionó una
       if (imageFile) {
         const fd = new FormData()
-        fd.append("menuId", String(menuId))
         fd.append("imagen", imageFile)
 
-        const resImg = await fetch("/api/menus", {
-          method: "PUT",
+        const resImg = await fetch(`/api/menus/${menuId}/imagen`, {
+          method: "POST",
           body: fd,
         })
 

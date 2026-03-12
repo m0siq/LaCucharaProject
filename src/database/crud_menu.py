@@ -14,7 +14,7 @@ from src.database.models import Menu, MenuPlato, Plato
 async def create_menu(
     session: AsyncSession,
     id_usuario: int,
-    imagen_menu: str | None = None,
+    imagen_menu: bytes | None = None,
     fecha: date | None = None,
 ) -> Menu:
     menu = Menu(IDUsuario=id_usuario, Imagen_menu=imagen_menu, Fecha=fecha or date.today())
@@ -53,7 +53,7 @@ async def get_platos_de_menu(session: AsyncSession, id_menu: int) -> list[Plato]
 async def update_menu(
     session: AsyncSession,
     id_menu: int,
-    imagen_menu: str | None = None,
+    imagen_menu: bytes | None = None,
     fecha: date | None = None,
 ) -> Menu | None:
     menu = await get_menu_by_id(session, id_menu)

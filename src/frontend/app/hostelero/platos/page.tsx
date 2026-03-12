@@ -145,6 +145,7 @@ export default function PlatosPage() {
       return
     }
     setOcrLoading(true)
+    console.log("🔍 Iniciando OCR con menú:", todayMenu)
     try {
       const res = await fetch("/api/ocr", {
         method: "POST",
@@ -152,13 +153,18 @@ export default function PlatosPage() {
         body: JSON.stringify({ image: todayMenu.ImagenMenu, menuId: todayMenu.IDMenu }),
       })
       const data = await res.json()
+      console.log("✅ Respuesta OCR:", data)
+      console.log("Estado respuesta:", res.status, res.ok)
       if (!res.ok) {
+        console.error("❌ Error OCR:", data.error)
         toast.error(data.error || "Error en OCR")
         return
       }
+      console.log(`🎉 Se extrajeron ${data.platosCreados || 0} platos`)
       toast.success(`Se extrajeron ${data.platosCreados || 0} platos de la imagen`)
       mutate(`/api/menus/${todayMenu.IDMenu}/platos`)
-    } catch {
+    } catch (error) {
+      console.error("💥 Error al procesar OCR:", error)
       toast.error("Error al procesar OCR")
     } finally {
       setOcrLoading(false)

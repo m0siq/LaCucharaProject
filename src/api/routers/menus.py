@@ -62,6 +62,7 @@ async def subir_imagen_menu(
     m = await update_menu(db, id_menu, imagen_menu=contenido)
     if not m:
         raise HTTPException(status_code=404, detail="Menu no encontrado")
+    await db.commit()
     return {"mensaje": "Imagen actualizada correctamente"}
 
 

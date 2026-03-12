@@ -120,17 +120,23 @@ class MenuOut(BaseModel):
     IDUsuario:  int
     Fecha:      date | None
     has_imagen: bool = False
+    ImagenMenu: str | None = None  # Base64 de la imagen
 
     @model_validator(mode="before")
     @classmethod
     def _compute_has_imagen(cls, data: Any) -> Any:
+        import base64
         # Si viene un objeto ORM (SQLAlchemy), lo convertimos a dict
         if hasattr(data, "Imagen_menu"):
+            imagen_b64 = None
+            if data.Imagen_menu:
+                imagen_b64 = f"data:image/jpeg;base64,{base64.b64encode(data.Imagen_menu).decode()}"
             return {
                 "IDMenu":     data.IDMenu,
                 "IDUsuario":  data.IDUsuario,
                 "Fecha":      data.Fecha,
                 "has_imagen": bool(data.Imagen_menu),
+                "ImagenMenu": imagen_b64,
             }
         return data
 

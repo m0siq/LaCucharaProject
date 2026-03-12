@@ -66,6 +66,37 @@ async def search_platos(session: AsyncSession, nombre: str) -> list[Plato]:
     return result.scalars().all()
 
 
+async def get_plato_by_nombre_exact(session: AsyncSession, nombre: str) -> Plato | None:
+    """Busca un plato por nombre exacto (case-insensitive)."""
+    result = await session.execute(
+        select(Plato).where(Plato.NombrePlato.ilike(nombre))
+    )
+    return result.scalar_one_or_none()
+
+
+async def create_menu_plato(
+    session: AsyncSession,
+    id_menu: int,
+    id_plato: int,
+) -> MenuPlato | None:
+    """Crea la relación entre menú y plato sin duplicados."""
+    # Verificar si ya existe
+    result = await session.execute(
+        select(MenuPlato).where(
+            (MenuPlato.IDMenu == id_menu) & (MenuPlato.IDPlato == id_plato)
+        )
+    )
+    existing = result.scalar_one_or_none()
+    
+    if existing:
+        return existing  # Ya existe la relación
+    
+    menu_plato = MenuPlato(IDMenu=id_menu, IDPlato=id_plato)
+    session.add(menu_plato)
+    await session.flush()
+    return menu_plato
+
+
 # ── UPDATE ────────────────────────────────────────────────────────────────────
 async def update_plato(
     session: AsyncSession,
