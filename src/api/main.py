@@ -8,6 +8,7 @@ Ejecutar: uvicorn src.api.main:app --reload
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.api.routers import usuarios, hosteleros, clientes, platos, menus, valoraciones
+from src.api.routers import ml
 
 app = FastAPI(
     title="RecomendadorDB API",
@@ -29,6 +30,7 @@ app.include_router(clientes.router)
 app.include_router(platos.router)
 app.include_router(menus.router)
 app.include_router(valoraciones.router)
+app.include_router(ml.router)
 
 
 @app.get("/", tags=["root"])

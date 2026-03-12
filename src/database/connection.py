@@ -27,6 +27,9 @@ DB_DRIVER   = os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server")
 CONNECTION_STRING = (
     f"mssql+aioodbc://{DB_USER}:{DB_PASSWORD}@{DB_SERVER}:{DB_PORT}/{DB_NAME}"
     f"?driver={DB_DRIVER.replace(' ', '+')}"
+    f"&Encrypt=yes"                        # OBLIGATORIO para Azure
+    f"&TrustServerCertificate=no"          # Para que valide el certificado de Azure
+    f"&Connection+Timeout=30"              # Darle margen a la red
 )
 
 # ── Motor async ───────────────────────────────────────────────────────────────
