@@ -27,11 +27,13 @@ export async function POST(request: Request) {
       )
     }
 
-    const endpoint = "endpoint"
-    const key = "key"
+    const endpoint = process.env.AZURE_DI_ENDPOINT
+    const key = process.env.AZURE_DI_KEY
+    const modelId = process.env.AZURE_DI_MODEL_ID || "ReconocimientoCartas"
 
     console.log("🔧 [OCR] Endpoint Azure:", endpoint)
     console.log("🔑 [OCR] Key configurada:", !!key)
+    console.log("📋 [OCR] Modelo a usar:", modelId)
 
     if (!endpoint || !key) {
       console.error("❌ [OCR] Azure Document Intelligence no configurado")
@@ -54,7 +56,7 @@ export async function POST(request: Request) {
     console.log("📸 [OCR] Imagen base64 tamaño:", base64Data.length, "bytes")
 
     // Call Azure Document Intelligence with custom model
-    const analyzeUrl = `${endpoint}/documentintelligence/documentModels/ReconocimientoCartas:analyze?api-version=2024-11-30`
+    const analyzeUrl = `${endpoint}/documentintelligence/documentModels/${modelId}:analyze?api-version=2024-11-30`
 
     console.log("🌐 [OCR] Enviando a Azure modelo personalizado:", analyzeUrl)
 

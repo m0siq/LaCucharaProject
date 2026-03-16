@@ -65,6 +65,17 @@ export default function RestauranteDetail({
 
   const { restaurante, menu, platos, menus } = data
 
+  // Log de platos recibidos
+  console.log("🍽️ [CLIENTE] Platos recibidos:", {
+    cantidad: platos?.length,
+    platos: platos?.map((p: any) => ({
+      IDPlato: p.IDPlato,
+      nombre: p.NombrePlato,
+      tipo: p.Tipo,
+      descripcion: p.Descripcion,
+    })),
+    platosCrudos: platos,
+  })
 
   // Agrupar platos por tipo
   const groupedPlatos: Record<string, typeof platos> = {}
@@ -76,7 +87,7 @@ export default function RestauranteDetail({
     }
   }
 
-  const tipoOrder = ["primero", "segundo", "postre", "bebida", "otro"]
+  const tipoOrder = ["primer plato", "segundo plato", "postre", "bebida", "otro"]
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">

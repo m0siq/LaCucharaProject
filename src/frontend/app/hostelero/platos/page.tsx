@@ -61,12 +61,20 @@ export default function PlatosPage() {
   const [addData, setAddData] = useState({ nombre: "", tipo: TIPOS_PLATO[0].value as string, descripcion: "" })
   const [addingPlato, setAddingPlato] = useState(false)
 
+  // Helper para convertir value a label
+  function getTipoLabel(value: string): string {
+    return TIPOS_PLATO.find(t => t.value === value)?.label || value
+  }
+
   async function handleUpdate(platoId: number) {
     try {
       const res = await fetch(`/api/platos/${platoId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editData),
+        body: JSON.stringify({
+          ...editData,
+          tipo: getTipoLabel(editData.tipo),
+        }),
       })
 
       if (!res.ok) {
@@ -117,7 +125,7 @@ export default function PlatosPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           NombrePlato: addData.nombre.trim(),
-          Tipo: addData.tipo,
+          Tipo: getTipoLabel(addData.tipo),
           Descripcion: addData.descripcion.trim() || null,
         }),
       })
@@ -307,7 +315,7 @@ export default function PlatosPage() {
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {TIPOS_PLATO.map((t) => (
+                                    {TIPOS_PLATO.filter(t => ["primero", "segundo", "postre", "bebida", "otro"].includes(t.value)).map((t) => (
                                       <SelectItem key={t.value} value={t.value}>
                                         {t.label}
                                       </SelectItem>
@@ -433,7 +441,7 @@ export default function PlatosPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {TIPOS_PLATO.map((t) => (
+                        {TIPOS_PLATO.filter(t => ["primero", "segundo", "postre", "bebida", "otro"].includes(t.value)).map((t) => (
                           <SelectItem key={t.value} value={t.value}>
                             {t.label}
                           </SelectItem>

@@ -61,11 +61,11 @@ async def procesar_platos_ocr(datos: PlatosOCRInput, db: AsyncSession = Depends(
     """
     try:
         menuId = datos.menuId
-        # Mapear tipos de OCR a tipos de BD
+        # Mapear tipos de OCR a tipos de BD (valores correctos)
         tipo_mapping = {
-            "Primer_plato": "Primer Plato",
-            "Segundo_plato": "Segundo Plato",
-            "Postres": "Postre",
+            "Primer_plato": "primero",
+            "Segundo_plato": "segundo",
+            "Postres": "postre",
         }
         
         platos_por_tipo = {
