@@ -27,8 +27,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const endpoint = process.env.AZURE_DI_ENDPOINT
-    const key = process.env.AZURE_DI_KEY
+    const endpoint = "endpoint"
+    const key = "key"
 
     console.log("🔧 [OCR] Endpoint Azure:", endpoint)
     console.log("🔑 [OCR] Key configurada:", !!key)
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     // Get the operation-location header for polling
     const operationLocation = analyzeResponse.headers.get("operation-location")
     console.log("⏳ [OCR] Operation Location:", operationLocation)
-    
+
     if (!operationLocation) {
       console.error("❌ [OCR] No se recibió operation-location")
       return NextResponse.json(
@@ -186,7 +186,7 @@ export async function POST(request: Request) {
     console.log("\n" + "=".repeat(60))
     console.log("🍽️  RESULTADOS DE EXTRACCIÓN OCR")
     console.log("=".repeat(60))
-    
+
     console.log("\n📌 PRIMER_PLATO:")
     if (platosPorTipo.Primer_plato.length === 0) {
       console.log("  ❌ No se encontraron")

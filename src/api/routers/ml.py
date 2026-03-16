@@ -26,6 +26,9 @@ from src.ml_logic.demand_model import (
     get_recommendations,
     get_popular_dishes,
     get_keywords,
+    get_weighted_scores,
+    suggest_weekly_menu,
+    predict_success,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,6 +75,42 @@ class KeywordsRequest(BaseModel):
 class KeywordsResponse(BaseModel):
     keywords: list[str]
     total:    int
+
+
+# ── Schemas para Menú Semanal ─────────────────────────────────────────────────
+
+class PlatoMenuSemanal(BaseModel):
+    IDPlato:          int
+    NombrePlato:      str
+    Tipo:             str | None
+    weighted_score:   float
+    media_puntuacion: float
+    n_valoraciones:   int
+    categoria:        str
+
+
+class MenuSemanalResponse(BaseModel):
+    primeros: list[PlatoMenuSemanal]
+    segundos: list[PlatoMenuSemanal]
+
+
+# ── Schemas para Predictor de Éxito ──────────────────────────────────────────
+
+class ExitoRequest(BaseModel):
+    id_platos: list[int] = Field(..., min_length=1, max_length=50)
+
+
+class DetallePlato(BaseModel):
+    IDPlato:        int
+    NombrePlato:    str
+    weighted_score: float
+    n_valoraciones: int
+
+
+class ExitoResponse(BaseModel):
+    porcentaje_exito: float
+    score_medio:      float
+    detalle:          list[DetallePlato]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -259,3 +298,74 @@ async def clasificar_batch(platos: list[ClasificarRequest]) -> list[ClasificarRe
                 keywords=[],
             ))
     return results
+
+
+@router.get(
+    "/menu-semanal",
+    response_model=MenuSemanalResponse,
+    summary="Propuesta de menú semanal basada en demanda",
+    description=(
+        "Devuelve los 5 mejores primeros platos y 5 mejores segundos platos "
+        "ordenados por Weighted Score (media bayesiana + volumen de votos). "
+        "Aplica la regla de variedad dietética: máx. 2 platos seguidos del mismo tipo."
+    ),
+)
+async def menu_semanal(
+    top_primeros: int = Query(5, ge=1, le=10, description="Número de primeros platos"),
+    top_segundos: int = Query(5, ge=1, le=10, description="Número de segundos platos"),
+    db: AsyncSession = Depends(get_db),
+) -> MenuSemanalResponse:
+    """Propone el mejor menú semanal según las valoraciones históricas."""
+    try:
+        valoraciones = await _get_valoraciones_dict(db)
+        platos       = await _get_platos_dict(db)
+
+        resultado = suggest_weekly_menu(
+            valoraciones=valoraciones,
+            platos=platos,
+            top_primeros=top_primeros,
+            top_segundos=top_segundos,
+        )
+
+        return MenuSemanalResponse(
+            primeros=[PlatoMenuSemanal(**p) for p in resultado["primeros"]],
+            segundos=[PlatoMenuSemanal(**p) for p in resultado["segundos"]],
+        )
+    except Exception as exc:
+        logger.exception("Error en menu-semanal: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Error generando menú semanal: {exc}") from exc
+
+
+@router.post(
+    "/exito",
+    response_model=ExitoResponse,
+    summary="Predictor de éxito para una selección de platos",
+    description=(
+        "Recibe una lista de IDPlato y devuelve el porcentaje de éxito esperado "
+        "basado en la media de sus Weighted Scores históricos. "
+        "Platos sin valoraciones reciben puntuación neutra (3.0 / 60%)."
+    ),
+)
+async def predecir_exito(
+    datos: ExitoRequest,
+    db: AsyncSession = Depends(get_db),
+) -> ExitoResponse:
+    """Calcula el porcentaje de éxito estimado para una lista de platos."""
+    try:
+        valoraciones = await _get_valoraciones_dict(db)
+        platos       = await _get_platos_dict(db)
+
+        resultado = predict_success(
+            id_platos=datos.id_platos,
+            valoraciones=valoraciones,
+            platos=platos,
+        )
+
+        return ExitoResponse(
+            porcentaje_exito=resultado["porcentaje_exito"],
+            score_medio=resultado["score_medio"],
+            detalle=[DetallePlato(**d) for d in resultado["detalle"]],
+        )
+    except Exception as exc:
+        logger.exception("Error en predictor de éxito: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Error en predictor: {exc}") from exc

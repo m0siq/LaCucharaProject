@@ -14,14 +14,16 @@ import {
   LogOut,
   Menu,
   X,
+  BarChart2,
 } from "lucide-react"
 import { toast } from "sonner"
 
 const NAV_ITEMS = [
-  { href: "/hostelero",             label: "Panel",        icon: LayoutDashboard },
-  { href: "/hostelero/menu",        label: "Menu del Dia", icon: BookOpen        },
-  { href: "/hostelero/platos",      label: "Platos",       icon: ChefHat         },
-  { href: "/hostelero/valoraciones", label: "Reseñas",     icon: MessageSquare   },
+  { href: "/hostelero",              label: "Panel",        icon: LayoutDashboard },
+  { href: "/hostelero/menu",         label: "Menu del Dia", icon: BookOpen        },
+  { href: "/hostelero/platos",       label: "Platos",       icon: ChefHat         },
+  { href: "/hostelero/valoraciones", label: "Reseñas",      icon: MessageSquare   },
+  { href: "/hostelero/analitica",    label: "Analítica",    icon: BarChart2       },
 ]
 
 export default function HosteleroLayout({
