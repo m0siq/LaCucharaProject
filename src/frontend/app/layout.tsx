@@ -19,23 +19,6 @@ export const metadata: Metadata = {
   title: "La Cuchara - Menus del dia en Azca, Madrid",
   description:
     "Descubre los mejores menus del dia en el distrito empresarial de Azca. Valora platos y encuentra tu restaurante favorito.",
-  icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    apple: "/apple-icon.png",
-  },
 }
 
 export const viewport: Viewport = {

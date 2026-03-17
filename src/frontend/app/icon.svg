@@ -1,0 +1,16 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #f0eae5; }
+      .spoon { fill: #9a5131; } /* Theme primary color */
+    }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #1a1512; }
+      .spoon { fill: #e5b89a; }
+    }
+    * { transition: fill 0.3s ease; }
+  </style>
+  <rect class="bg" width="180" height="180" rx="37" />
+  <!-- Spoon Vector -->
+  <path class="spoon" d="M129.5 45c-8.9-8.9-25.2-11.4-38.6-4.2-8.3 4.5-17.7 15.6-26.6 27.6L50 82.5c-4.1 4.1-17 21.6-18.7 28.5-1.7 6.9.8 15.6 6.8 21.6 6 6 14.7 8.5 21.6 6.8 6.9-1.7 24.4-14.6 28.5-18.7l14.1-14.3C114.3 97.5 125.4 88.1 129.9 79.8c7.2-13.4 4.7-29.7-4.2-38.6zm-17 12c.9-2.2.9-4.8 0-6s-3.8-.9-6 0-4.8.9-6 0c-1.2-.9-1.2-3.8 0-6 2.2-.9 4.8-.9 6 0 2.2.9 6 1.8 12 0s9.8-3.6 12-6" />
+</svg>
