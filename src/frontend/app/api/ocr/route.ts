@@ -126,18 +126,62 @@ export async function POST(request: Request) {
     }
 
     // Extract entities from custom model ReconocimientoCartas
-    const platosPorTipo: { Primer_plato: string[]; Segundo_plato: string[]; Postres: string[] } = {
+    // Estructura esperada: { Primer_plato, Segundo_plato, Postres, Precio?, ... otros campos }
+    const platosPorTipo: { 
+      Primer_plato: { nombre: string; precio: number | null }[]; 
+      Segundo_plato: { nombre: string; precio: number | null }[]; 
+      Postres: { nombre: string; precio: number | null }[]; 
+    } = {
       Primer_plato: [],
       Segundo_plato: [],
       Postres: [],
     }
 
+    let precioMenuOCR: number | null = null  // Campo separado de Precio del menú
+
     if (result.documents && result.documents.length > 0) {
       const doc = result.documents[0]
       const fields = doc.fields || {}
 
-      console.log("\n📊 [OCR] Campos extraídos del modelo personalizado:")
+      console.log("\n" + "=".repeat(80))
+      console.log("📊 [OCR] TODOS LOS CAMPOS EXTRAÍDOS DEL MODELO PERSONALIZADO:")
+      console.log("=".repeat(80))
+      
+      // Mostrar TODOS los campos con sus tipos y valores
+      Object.entries(fields).forEach(([fieldName, fieldData]: [string, any]) => {
+        console.log(`\n🔹 Campo: "${fieldName}"`)
+        if (fieldData.type) console.log(`   Tipo: ${fieldData.type}`)
+        if (fieldData.confidence) console.log(`   Confianza: ${(fieldData.confidence * 100).toFixed(1)}%`)
+        if (fieldData.content) console.log(`   Contenido: ${fieldData.content}`)
+        if (fieldData.value !== undefined) console.log(`   Valor: ${fieldData.value}`)
+        if (fieldData.valueNumber !== undefined) console.log(`   Número: ${fieldData.valueNumber}`)
+        if (fieldData.valueString) console.log(`   String: ${fieldData.valueString}`)
+      })
+      
+      console.log("\n" + "=".repeat(80))
+      console.log("📋 [OCR] ESTRUCTURA COMPLETA EN JSON:")
+      console.log("=".repeat(80))
       console.log(JSON.stringify(fields, null, 2))
+      console.log("=".repeat(80) + "\n")
+
+      // Función auxiliar para extraer precios de un texto
+      const extraerPlatoYPrecio = (texto: string): { nombre: string; precio: number | null } => {
+        // Buscar patrones como: "Plato - 10€", "Plato (15€)", "Plato: 12,50€", etc.
+        const regexPrecio = /[€$]?\s*(\d+[.,]?\d*)\s*€?|(\d+[.,]?\d*)\s*[€$]/i
+        const match = texto.match(regexPrecio)
+        
+        if (match) {
+          try {
+            const precioStr = (match[1] || match[2]).replace(',', '.')
+            const precio = parseFloat(precioStr)
+            const nombre = texto.replace(regexPrecio, '').trim()
+            return { nombre, precio: precio || null }
+          } catch {
+            return { nombre: texto.trim(), precio: null }
+          }
+        }
+        return { nombre: texto.trim(), precio: null }
+      }
 
       // Extraer Primer_plato del modelo personalizado
       if (fields.Primer_plato && fields.Primer_plato.content) {
@@ -147,6 +191,7 @@ export async function POST(request: Request) {
           .split(/[\n•-]/)
           .map((p: string) => p.trim())
           .filter((p: string) => p.length > 2)
+          .map(extraerPlatoYPrecio)
         platosPorTipo.Primer_plato = primeros
         console.log("✅ [OCR] Primer_plato extraído:", platosPorTipo.Primer_plato)
       } else {
@@ -161,6 +206,7 @@ export async function POST(request: Request) {
           .split(/[\n•-]/)
           .map((p: string) => p.trim())
           .filter((p: string) => p.length > 2)
+          .map(extraerPlatoYPrecio)
         platosPorTipo.Segundo_plato = segundos
         console.log("✅ [OCR] Segundo_plato extraído:", platosPorTipo.Segundo_plato)
       } else {
@@ -175,10 +221,31 @@ export async function POST(request: Request) {
           .split(/[\n•-]/)
           .map((p: string) => p.trim())
           .filter((p: string) => p.length > 2)
+          .map(extraerPlatoYPrecio)
         platosPorTipo.Postres = postres
         console.log("✅ [OCR] Postres extraído:", platosPorTipo.Postres)
       } else {
         console.log("⚠️  [OCR] Campo Postres no encontrado en el modelo")
+      }
+
+      // Extraer Precio del campo separado (si existe)
+      if (fields.Precio) {
+        console.log("\n💰 [OCR] Campo PRECIO detectado en el modelo")
+        if (fields.Precio.valueNumber !== undefined) {
+          precioMenuOCR = fields.Precio.valueNumber
+          console.log(`✅ [OCR] Precio extraído: ${precioMenuOCR}€`)
+        } else if (fields.Precio.content) {
+          // Intentar extraer número del contenido si viene como texto
+          const match = fields.Precio.content.match(/(\d+[.,]?\d*)/)
+          if (match) {
+            precioMenuOCR = parseFloat(match[1].replace(',', '.'))
+            console.log(`✅ [OCR] Precio extraído del contenido: ${precioMenuOCR}€`)
+          }
+        } else {
+          console.log("⚠️  [OCR] Campo Precio encontrado pero sin valueNumber ni content")
+        }
+      } else {
+        console.log("⚠️  [OCR] Campo Precio NO encontrado en el modelo")
       }
     } else {
       console.error("❌ [OCR] No se encontraron documentos en el resultado de Azure")
@@ -186,7 +253,7 @@ export async function POST(request: Request) {
 
     // Mostrar solo Primer_plato, Segundo_plato y Postres
     console.log("\n" + "=".repeat(60))
-    console.log("🍽️  RESULTADOS DE EXTRACCIÓN OCR")
+    console.log("🍽️  RESULTADOS DE EXTRACCIÓN OCR (CON PRECIOS)")
     console.log("=".repeat(60))
 
     console.log("\n📌 PRIMER_PLATO:")
@@ -194,7 +261,7 @@ export async function POST(request: Request) {
       console.log("  ❌ No se encontraron")
     } else {
       platosPorTipo.Primer_plato.forEach((plato, idx) => {
-        console.log(`  ${idx + 1}. ${plato}`)
+        console.log(`  ${idx + 1}. ${plato.nombre}${plato.precio ? ` (${plato.precio}€)` : " (sin precio)"}`)
       })
     }
 
@@ -203,7 +270,7 @@ export async function POST(request: Request) {
       console.log("  ❌ No se encontraron")
     } else {
       platosPorTipo.Segundo_plato.forEach((plato, idx) => {
-        console.log(`  ${idx + 1}. ${plato}`)
+        console.log(`  ${idx + 1}. ${plato.nombre}${plato.precio ? ` (${plato.precio}€)` : " (sin precio)"}`)
       })
     }
 
@@ -212,7 +279,7 @@ export async function POST(request: Request) {
       console.log("  ❌ No se encontraron")
     } else {
       platosPorTipo.Postres.forEach((plato, idx) => {
-        console.log(`  ${idx + 1}. ${plato}`)
+        console.log(`  ${idx + 1}. ${plato.nombre}${plato.precio ? ` (${plato.precio}€)` : " (sin precio)"}`)
       })
     }
 
@@ -227,6 +294,7 @@ export async function POST(request: Request) {
       Primer_plato: platosPorTipo.Primer_plato,
       Segundo_plato: platosPorTipo.Segundo_plato,
       Postres: platosPorTipo.Postres,
+      ...(precioMenuOCR !== null && { Precio: precioMenuOCR }),
       message: `OCR completado. Revisa la terminal para ver los resultados.`,
     }
     console.log(respuesta)
@@ -235,17 +303,23 @@ export async function POST(request: Request) {
     // Send extracted dishes to backend to save to database
     console.log("📤 [OCR] Enviando platos al backend para guardar en BD...")
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+    const backendPayload = {
+      menuId: menuId,
+      Primer_plato: platosPorTipo.Primer_plato,
+      Segundo_plato: platosPorTipo.Segundo_plato,
+      Postres: platosPorTipo.Postres,
+      ...(precioMenuOCR !== null && { Precio: precioMenuOCR }),
+    }
+    
+    console.log("\n📨 [OCR] Payload enviado al backend:")
+    console.log(JSON.stringify(backendPayload, null, 2))
+    
     const saveResponse = await fetch(`${backendUrl}/platos/ocr/procesar`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        menuId: menuId,
-        Primer_plato: platosPorTipo.Primer_plato,
-        Segundo_plato: platosPorTipo.Segundo_plato,
-        Postres: platosPorTipo.Postres,
-      }),
+      body: JSON.stringify(backendPayload),
     })
 
     if (!saveResponse.ok) {

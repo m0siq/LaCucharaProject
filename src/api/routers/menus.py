@@ -46,9 +46,10 @@ async def actualizar_menu(
     datos: MenuUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    m = await update_menu(db, id_menu, fecha=datos.Fecha)
+    m = await update_menu(db, id_menu, fecha=datos.Fecha, precio=datos.Precio)
     if not m:
         raise HTTPException(status_code=404, detail="Menu no encontrado")
+    await db.commit()
     return m
 
 

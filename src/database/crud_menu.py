@@ -55,6 +55,7 @@ async def update_menu(
     id_menu: int,
     imagen_menu: bytes | None = None,
     fecha: date | None = None,
+    precio: float | None = None,  # ← Nuevo
 ) -> Menu | None:
     menu = await get_menu_by_id(session, id_menu)
     if not menu:
@@ -63,6 +64,8 @@ async def update_menu(
         menu.Imagen_menu = imagen_menu
     if fecha is not None:
         menu.Fecha = fecha
+    if precio is not None:
+        menu.Precio = precio
     await session.flush()
     return menu
 

@@ -116,6 +116,7 @@ class Menu(Base):
     IDUsuario:   Mapped[int] = mapped_column(Integer, ForeignKey("Usuario.IDUsuario"), nullable=False)
     Imagen_menu: Mapped[bytes | None] = mapped_column(VARBINARY("max"))
     Fecha:       Mapped[date | None] = mapped_column(Date)
+    Precio:      Mapped[float | None] = mapped_column(Float)  # ← Nuevo: precio del menú del día
 
     # Relaciones
     usuario:     Mapped["Usuario"]         = relationship(back_populates="menus")

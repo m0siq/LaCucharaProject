@@ -87,7 +87,7 @@ export default function RestauranteDetail({
     }
   }
 
-  const tipoOrder = ["primer plato", "segundo plato", "postre", "bebida", "otro"]
+  const tipoOrder = ["primero", "segundo", "postre", "bebida", "otro"]
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -138,6 +138,14 @@ export default function RestauranteDetail({
                   </div>
                 </Card>
               ) : null}
+
+              {/* Precio del menu */}
+              {menu?.Precio && (
+                <div className="rounded-lg border border-border/50 bg-card/50 px-6 py-4">
+                  <p className="text-sm text-muted-foreground">Precio del menú:</p>
+                  <p className="text-2xl font-bold text-foreground">{menu.Precio.toFixed(2)}€</p>
+                </div>
+              )}
 
               {/* Platos del menu de hoy */}
               {!platos?.length ? (

@@ -18,11 +18,18 @@ router = APIRouter(prefix="/platos", tags=["Platos"])
 
 
 # Schemas locales para OCR
+class PlatoOCRItem(BaseModel):
+    """Representa un plato extraído del OCR con nombre y precio opcional."""
+    nombre: str
+    precio: float | None = None
+
+
 class PlatosOCRInput(BaseModel):
     menuId: int
-    Primer_plato: list[str]
-    Segundo_plato: list[str]
-    Postres: list[str]
+    Primer_plato: list[PlatoOCRItem | str]  # Acepta strings antiguos o nuevos objetos
+    Segundo_plato: list[PlatoOCRItem | str]
+    Postres: list[PlatoOCRItem | str]
+    Precio: float | None = None  # Campo adicional para precio del menú
 
 
 class PlatosOCRResponse(BaseModel):
@@ -58,9 +65,20 @@ async def procesar_platos_ocr(datos: PlatosOCRInput, db: AsyncSession = Depends(
     Procesa los platos extraídos por OCR:
     - Si el plato existe (por nombre), lo relaciona con el menú
     - Si no existe, lo crea con el tipo correspondiente y lo relaciona
+    - Extrae y guarda el precio en el Menu
     """
     try:
         menuId = datos.menuId
+        
+        # LOG CRÍTICO: Verificar menuId al inicio
+        print(f"\n" + "="*80)
+        print(f"🚨 [BACKEND OCR] VERIFICACIÓN DE menuId")
+        print("="*80)
+        print(f"✓ menuId extraído de datos: {menuId}")
+        print(f"✓ Tipo de menuId: {type(menuId)}")
+        print(f"✓ Valor es None?: {menuId is None}")
+        print(f"✓ Valor es 0?: {menuId == 0}")
+        print("="*80 + "\n")
         # Mapear tipos de OCR a tipos de BD (valores correctos)
         tipo_mapping = {
             "Primer_plato": "primero",
@@ -76,20 +94,74 @@ async def procesar_platos_ocr(datos: PlatosOCRInput, db: AsyncSession = Depends(
         
         creados = 0
         relacionados = 0
+        precio_menu = None  # Variable para guardar el precio extraído del OCR
         
-        print(f"\n📥 [BACKEND] Procesando platos OCR para menuId={menuId}")
+        # Log completo de TODOS los campos recibidos
+        print(f"\n" + "="*80)
+        print(f"📥 [BACKEND OCR] DATOS COMPLETOS RECIBIDOS DEL FRONTEND")
+        print("="*80)
+        print(f"\n🔹 MenuID: {menuId}")
+        print(f"🔹 Precio del menú (campo separado): {datos.Precio}")
+        print(f"\n📊 PLATOS RECIBIDOS:")
+        print(f"  • Primer_plato: {len(datos.Primer_plato)} items")
+        for i, p in enumerate(datos.Primer_plato):
+            if isinstance(p, str):
+                print(f"      [{i}] String: {p}")
+            else:
+                nombre = getattr(p, 'nombre', p.get('nombre', 'N/A') if isinstance(p, dict) else 'N/A')
+                precio = getattr(p, 'precio', p.get('precio', None) if isinstance(p, dict) else None)
+                print(f"      [{i}] {nombre} → Precio: {precio}")
+        print(f"  • Segundo_plato: {len(datos.Segundo_plato)} items")
+        for i, p in enumerate(datos.Segundo_plato):
+            if isinstance(p, str):
+                print(f"      [{i}] String: {p}")
+            else:
+                nombre = getattr(p, 'nombre', p.get('nombre', 'N/A') if isinstance(p, dict) else 'N/A')
+                precio = getattr(p, 'precio', p.get('precio', None) if isinstance(p, dict) else None)
+                print(f"      [{i}] {nombre} → Precio: {precio}")
+        print(f"  • Postres: {len(datos.Postres)} items")
+        for i, p in enumerate(datos.Postres):
+            if isinstance(p, str):
+                print(f"      [{i}] String: {p}")
+            else:
+                nombre = getattr(p, 'nombre', p.get('nombre', 'N/A') if isinstance(p, dict) else 'N/A')
+                precio = getattr(p, 'precio', p.get('precio', None) if isinstance(p, dict) else None)
+                print(f"      [{i}] {nombre} → Precio: {precio}")
+        print("="*80 + "\n")
         
         # Procesar cada tipo de plato
-        for tipo_ocr, nombres_platos in platos_por_tipo.items():
+        for tipo_ocr, items_platos in platos_por_tipo.items():
             tipo_bd = tipo_mapping[tipo_ocr]  # Mapear a nombre correcto
-            print(f"\n🍽️  Procesando {tipo_ocr} (se guardará como: {tipo_bd}): {len(nombres_platos)} platos")
+            print(f"\n🍽️  Procesando {tipo_ocr} (se guardará como: {tipo_bd}): {len(items_platos)} platos")
             
-            for nombre_plato in nombres_platos:
+            for item in items_platos:
+                # Compatibilidad: aceptar strings antiguos o nuevos objetos con precio
+                nombre_plato = None
+                precio = None
+                
+                if isinstance(item, str):
+                    # String antiguo
+                    nombre_plato = item
+                    precio = None
+                elif isinstance(item, dict):
+                    # Dict deserializado por Pydantic
+                    nombre_plato = item.get("nombre")
+                    precio = item.get("precio")
+                else:
+                    # Objeto PlatoOCRItem
+                    nombre_plato = getattr(item, "nombre", None)
+                    precio = getattr(item, "precio", None)
+                
                 if not nombre_plato or not nombre_plato.strip():
                     continue
                 
                 nombre_plato = nombre_plato.strip()
-                print(f"  → Buscando/creando: '{nombre_plato}' ({tipo_bd})")
+                print(f"  → Buscando/creando: '{nombre_plato}' ({tipo_bd}){f' - Precio: {precio}€' if precio else ''}")
+                
+                # Guardar el primer precio encontrado para el Menu
+                if precio is not None and precio_menu is None:
+                    precio_menu = precio
+                    print(f"    💰 Precio extraído para el menú: {precio_menu}€")
                 
                 # Buscar si existe el plato por nombre exacto
                 plato_existente = await get_plato_by_nombre_exact(db, nombre_plato)
@@ -110,6 +182,31 @@ async def procesar_platos_ocr(datos: PlatosOCRInput, db: AsyncSession = Depends(
                     creados += 1
                     relacionados += 1
                     print(f"    ✅ Plato creado (ID={nuevo_plato.IDPlato}) y relacionado")
+        
+        # Actualizar precio en el Menu 
+        # Prioridad: Campo Precio separado > Primer precio de platos
+        if datos.Precio is not None:
+            precio_menu = datos.Precio
+            print(f"\n💰 [BACKEND] Campo Precio separado detectado: {precio_menu}€")
+        
+        print(f"\n" + "="*80)
+        print(f"🚨 [BACKEND OCR] ANTES DE ACTUALIZAR MENU")
+        print("="*80)
+        print(f"✓ menuId a usar: {menuId}")
+        print(f"✓ precio_menu a guardar: {precio_menu}")
+        print("="*80 + "\n")
+        
+        if precio_menu is not None:
+            from src.database.crud_menu import update_menu
+            print(f"📞 [BACKEND] Llamando: update_menu(db, {menuId}, precio={precio_menu})")
+            menu_actualizado = await update_menu(db, menuId, precio=precio_menu)
+            if menu_actualizado:
+                print(f"✅ [BACKEND] Precio del menú actualizado a {precio_menu}€")
+                print(f"   Menu actualizado: IDMenu={menu_actualizado.IDMenu}, Precio={menu_actualizado.Precio}")
+            else:
+                print(f"❌ [BACKEND] update_menu retornó None para menuId={menuId}")
+        else:
+            print(f"⚠️  [BACKEND] No se encontró precio para guardar (ni en campo separado ni en platos)")
         
         await db.commit()
         

@@ -113,12 +113,14 @@ class MenuCreate(BaseModel):
 
 class MenuUpdate(BaseModel):
     Fecha: date | None = None
+    Precio: float | None = None
 
 
 class MenuOut(BaseModel):
     IDMenu:     int
     IDUsuario:  int
     Fecha:      date | None
+    Precio:     float | None = None  # ← Nuevo
     has_imagen: bool = False
     ImagenMenu: str | None = None  # Base64 de la imagen
 
@@ -135,6 +137,7 @@ class MenuOut(BaseModel):
                 "IDMenu":     data.IDMenu,
                 "IDUsuario":  data.IDUsuario,
                 "Fecha":      data.Fecha,
+                "Precio":     data.Precio,  # ← Agregar Precio
                 "has_imagen": bool(data.Imagen_menu),
                 "ImagenMenu": imagen_b64,
             }

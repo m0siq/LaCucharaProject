@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import useSWR, { mutate } from "swr"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,12 +35,8 @@ export default function PlatosPage() {
 
   const today = new Date().toISOString().split("T")[0]
 
-  const { data: menusData } = useSWR(
-    restData?.restaurante
-      ? `/api/menus?restauranteId=${restData.restaurante.IDRestaurante}`
-      : null,
-    fetcher
-  )
+  // Usar directamente /api/menus sin parámetros (usa el usuario del token)
+  const { data: menusData } = useSWR("/api/menus", fetcher)
 
   const todayMenu = menusData?.menus?.find(
     (m: { Fecha: string }) =>
@@ -61,9 +57,51 @@ export default function PlatosPage() {
   const [addData, setAddData] = useState({ nombre: "", tipo: TIPOS_PLATO[0].value as string, descripcion: "" })
   const [addingPlato, setAddingPlato] = useState(false)
 
+  const [editingPrecio, setEditingPrecio] = useState(false)
+  const [menuPrecio, setMenuPrecio] = useState<string>("")
+  const [savingPrecio, setSavingPrecio] = useState(false)
+
+  // Actualizar menuPrecio cuando todayMenu cambie, PERO solo si no estamos editando
+  useEffect(() => {
+    if (!editingPrecio) {
+      if (todayMenu?.Precio) {
+        setMenuPrecio(todayMenu.Precio.toString())
+      } else {
+        setMenuPrecio("")
+      }
+    }
+  }, [todayMenu, editingPrecio])
+
   // Helper para convertir value a label
   function getTipoLabel(value: string): string {
     return TIPOS_PLATO.find(t => t.value === value)?.label || value
+  }
+
+  async function handleSavePrecio() {
+    if (!todayMenu) return
+    setSavingPrecio(true)
+    try {
+      const precioNum = menuPrecio ? parseFloat(menuPrecio) : null
+      const res = await fetch(`/api/menus/${todayMenu.IDMenu}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ Precio: precioNum }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        toast.error(error.detail || "Error al guardar precio")
+        return
+      }
+
+      toast.success("Precio del menú guardado")
+      setEditingPrecio(false)
+      mutate(`/api/menus`)
+    } catch {
+      toast.error("Error al guardar precio")
+    } finally {
+      setSavingPrecio(false)
+    }
   }
 
   async function handleUpdate(platoId: number) {
@@ -170,7 +208,9 @@ export default function PlatosPage() {
       }
       console.log(`🎉 Se extrajeron ${data.platosCreados || 0} platos`)
       toast.success(`Se extrajeron ${data.platosCreados || 0} platos de la imagen`)
+      // Refrescar platos Y menú para que se actualice el precio
       mutate(`/api/menus/${todayMenu.IDMenu}/platos`)
+      mutate('/api/menus')  // Refrescar con la URL exacta que SWR usa
     } catch (error) {
       console.error("💥 Error al procesar OCR:", error)
       toast.error("Error al procesar OCR")
@@ -247,6 +287,76 @@ export default function PlatosPage() {
         </Card>
       ) : (
         <>
+          {/* Precio del menú */}
+          <Card className="border-border/50 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="font-serif text-lg">Precio del Menú</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-end gap-3">
+                {editingPrecio ? (
+                  <>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-medium text-foreground">Precio (€)</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={menuPrecio}
+                        onChange={(e) => setMenuPrecio(e.target.value)}
+                        placeholder="12.50"
+                        className="w-32"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={handleSavePrecio}
+                      disabled={savingPrecio}
+                    >
+                      {savingPrecio ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="mr-2 h-4 w-4" />
+                      )}
+                      Guardar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingPrecio(false)
+                        setMenuPrecio("")
+                      }}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Cancelar
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Precio actual</p>
+                      <p className="text-2xl font-bold text-primary">
+                        {todayMenu.Precio ? `${todayMenu.Precio}€` : "No definido"}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setMenuPrecio(todayMenu.Precio?.toString() || "")
+                        setEditingPrecio(true)
+                      }}
+                      className="ml-auto"
+                    >
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Editar
+                    </Button>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Dishes table */}
           <Card className="border-border/50">
             <CardHeader>
